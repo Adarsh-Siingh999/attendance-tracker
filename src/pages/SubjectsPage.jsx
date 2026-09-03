@@ -9,7 +9,7 @@ import { getSubjectStatus } from "../utils/attendanceCalculations.js";
 import { MidSemesterSetupModal } from "../components/common/MidSemesterSetupModal.jsx";
 
 export function SubjectsPage() {
-  const { subjects, saveSubject, deleteSubject, threshold, criticalThreshold } = useApp();
+  const { subjects, subjectForecasts, saveSubject, deleteSubject, threshold, criticalThreshold } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMidSemModalOpen, setIsMidSemModalOpen] = useState(false);
@@ -130,6 +130,7 @@ export function SubjectsPage() {
         <div className="subjects-cards-grid">
           {subjects.map((sub) => {
             const status = getSubjectStatus(sub.percentage, threshold, criticalThreshold);
+            const forecast = subjectForecasts?.find((f) => f.id === sub.id) || {};
             return (
               <div key={sub.id} className="subject-detail-card">
                 <div className="card-top-bar" style={{ borderTop: `4px solid ${sub.color || "#2563eb"}` }}>
@@ -173,16 +174,68 @@ export function SubjectsPage() {
                   />
                 </div>
 
-                {/* Sub-components breakdown (e.g. PP / PR / Lab) */}
+                {/* 4 PREDICTIVE TARGET METRICS */}
+                <div className="subj-targets-grid">
+                  <div className="target-metric-box">
+                    <span className="target-label">Req for {threshold}%</span>
+                    <strong className={`target-value ${forecast.requiredClassesThreshold === 0 ? "text-success" : "text-danger"}`}>
+                      {forecast.requiredClassesThreshold === 0 ? "0 (Eligible ✓)" : `${forecast.requiredClassesThreshold} classes`}
+                    </strong>
+                  </div>
+
+                  <div className="target-metric-box">
+                    <span className="target-label">Req for {criticalThreshold}%</span>
+                    <strong className={`target-value ${forecast.requiredClassesCritical === 0 ? "text-success" : "text-danger"}`}>
+                      {forecast.requiredClassesCritical === 0 ? "0 (Safe ✓)" : `${forecast.requiredClassesCritical} classes`}
+                    </strong>
+                  </div>
+
+                  <div className="target-metric-box">
+                    <span className="target-label">Max Absences</span>
+                    <strong className={`target-value ${forecast.maximumAllowedAbsences > 0 ? "text-success" : "text-danger"}`}>
+                      {forecast.maximumAllowedAbsences > 0 ? `${forecast.maximumAllowedAbsences} safe skips` : "0 skips"}
+                    </strong>
+                  </div>
+
+                  <div className="target-metric-box">
+                    <span className="target-label">Best Possible</span>
+                    <strong className={`target-value ${forecast.canRecover ? "text-success" : "text-danger"}`}>
+                      {forecast.bestPossiblePercentage !== undefined ? `${forecast.bestPossiblePercentage.toFixed(1)}%` : "—"}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Sub-components breakdown & targets (e.g. PP / PR / Lab) */}
                 {sub.components && Object.keys(sub.components).length > 0 && (
                   <div className="components-breakdown-box">
-                    <span className="breakdown-label">Component Breakdown:</span>
-                    <div className="components-tags-row">
-                      {Object.entries(sub.components).map(([cType, cVal]) => (
-                        <div key={cType} className="comp-tag">
-                          <strong>{cType}:</strong> {cVal.attended}/{cVal.conducted}
-                        </div>
-                      ))}
+                    <span className="breakdown-label">Component Breakdown & Targets:</span>
+                    <div className="components-detail-grid">
+                      {Object.entries(sub.components).map(([cType, cVal]) => {
+                        const cForecast = forecast.componentForecasts?.[cType];
+                        const cPct = cVal.conducted > 0 ? ((cVal.attended / cVal.conducted) * 100).toFixed(1) : null;
+                        const isEligible = cPct !== null && parseFloat(cPct) >= threshold;
+                        return (
+                          <div key={cType} className="comp-detail-card">
+                            <div className="comp-card-header">
+                              <strong className="comp-name">{cType}</strong>
+                              <span className={`comp-ratio ${isEligible ? "text-success" : "text-danger"}`}>
+                                {cVal.attended}/{cVal.conducted} ({cPct !== null ? `${cPct}%` : "—"})
+                              </span>
+                            </div>
+                            <div className="comp-metrics-row">
+                              <span className="comp-metric-tag" title={`Classes required to reach ${threshold}%`}>
+                                Need {threshold}%: <strong>{cForecast?.requiredClassesThreshold ?? 0}</strong>
+                              </span>
+                              <span className="comp-metric-tag" title={`Classes required to reach ${criticalThreshold}%`}>
+                                Need {criticalThreshold}%: <strong>{cForecast?.requiredClassesCritical ?? 0}</strong>
+                              </span>
+                              <span className="comp-metric-tag" title={`Max safe absences allowed while staying >= ${threshold}%`}>
+                                Max Skips: <strong>{cForecast?.maximumAllowedAbsences ?? 0}</strong>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

@@ -205,6 +205,30 @@ assert(
   "Month 3 date resolves revised mid-semester timetable"
 );
 
+// 13. Subject-level Target Metrics (65%, 75%, Max Skips, Best Possible)
+const subAttended = 12;
+const subConducted = 20; // 60.0%
+const subRemaining = 10;
+const req65 = calculateRequiredClasses(subAttended, subConducted, 65);
+const req75 = calculateRequiredClasses(subAttended, subConducted, 75);
+const maxSkips = calculateMaximumAllowedAbsences(subAttended, subConducted, subRemaining, 75);
+const bestSub = calculateBestPossibleAttendance(subAttended, subConducted, subRemaining);
+
+assert(req65 === 3, "60% (12/20) requires exactly 3 consecutive classes to hit 65%");
+assert(req75 === 12, "60% (12/20) requires exactly 12 consecutive classes to hit 75%");
+assert(maxSkips === 0, "60% with 10 remaining classes allows 0 safe skips (cannot afford to miss)");
+assert(bestSub.percentage === 73.33, "Best possible with 10 remaining classes is 73.33% (22/30)");
+
+// 14. Component-level Targets (e.g. PP / PR / Lab)
+const compPP = { attended: 18, conducted: 20 }; // 90%
+const compReq75 = calculateRequiredClasses(compPP.attended, compPP.conducted, 75);
+const compReq65 = calculateRequiredClasses(compPP.attended, compPP.conducted, 65);
+const compBuffer = Math.max(0, Math.floor(compPP.attended / 0.75 - compPP.conducted));
+
+assert(compReq75 === 0, "90% component needs 0 required classes for 75%");
+assert(compReq65 === 0, "90% component needs 0 required classes for 65%");
+assert(compBuffer === 4, "90% component (18/20) allows 4 consecutive absences before dropping below 75%");
+
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {
   process.exit(1);

@@ -296,19 +296,60 @@ export function AppProvider({ children }) {
   const subjectForecasts = useMemo(() => {
     const futureByCode = {};
     for (const item of futureClasses) {
-      const code = item.code || item.subject;
-      futureByCode[code] = (futureByCode[code] || 0) + 1;
+      if (item.code) {
+        futureByCode[item.code] = (futureByCode[item.code] || 0) + 1;
+        futureByCode[item.code.toLowerCase()] = (futureByCode[item.code.toLowerCase()] || 0) + 1;
+      }
+      if (item.subject) {
+        futureByCode[item.subject] = (futureByCode[item.subject] || 0) + 1;
+        futureByCode[item.subject.toLowerCase()] = (futureByCode[item.subject.toLowerCase()] || 0) + 1;
+      }
     }
 
     return subjects.map((sub) => {
-      const codeKey = sub.code || sub.name;
-      const futureTotal = futureByCode[codeKey] || 0;
+      const futureTotal =
+        futureByCode[sub.code] ||
+        futureByCode[sub.name] ||
+        futureByCode[sub.code?.toLowerCase()] ||
+        futureByCode[sub.name?.toLowerCase()] ||
+        0;
+
       const best = calculateBestPossibleAttendance(sub.attended, sub.conducted, futureTotal);
       const reqThreshold = calculateRequiredClasses(sub.attended, sub.conducted, threshold);
       const reqCritical = calculateRequiredClasses(sub.attended, sub.conducted, criticalThreshold);
-      const maxAbs = calculateMaximumAllowedAbsences(sub.attended, sub.conducted, futureTotal, threshold);
-      const maxAbsCritical = calculateMaximumAllowedAbsences(sub.attended, sub.conducted, futureTotal, criticalThreshold);
+
+      const maxAbs =
+        futureTotal > 0
+          ? calculateMaximumAllowedAbsences(sub.attended, sub.conducted, futureTotal, threshold)
+          : Math.max(0, Math.floor(sub.attended / (threshold / 100) - sub.conducted));
+
+      const maxAbsCritical =
+        futureTotal > 0
+          ? calculateMaximumAllowedAbsences(sub.attended, sub.conducted, futureTotal, criticalThreshold)
+          : Math.max(0, Math.floor(sub.attended / (criticalThreshold / 100) - sub.conducted));
+
       const canRecover = best.percentage >= threshold;
+
+      // Component-level forecasts (e.g. Lecture, Lab, PP, PR)
+      const componentForecasts = {};
+      if (sub.components) {
+        for (const [cName, cVal] of Object.entries(sub.components)) {
+          const cAttended = cVal.attended || 0;
+          const cConducted = cVal.conducted || 0;
+          const cPct = cConducted > 0 ? (cAttended / cConducted) * 100 : null;
+          const cReq75 = calculateRequiredClasses(cAttended, cConducted, threshold);
+          const cReq65 = calculateRequiredClasses(cAttended, cConducted, criticalThreshold);
+          const cMaxAbs = Math.max(0, Math.floor(cAttended / (threshold / 100) - cConducted));
+          componentForecasts[cName] = {
+            attended: cAttended,
+            conducted: cConducted,
+            percentage: cPct,
+            requiredClassesThreshold: cReq75,
+            requiredClassesCritical: cReq65,
+            maximumAllowedAbsences: cMaxAbs,
+          };
+        }
+      }
 
       return {
         ...sub,
@@ -319,6 +360,7 @@ export function AppProvider({ children }) {
         maximumAllowedAbsences: maxAbs,
         maximumAllowedAbsencesCritical: maxAbsCritical,
         canRecover,
+        componentForecasts,
       };
     });
   }, [subjects, futureClasses, threshold, criticalThreshold]);
