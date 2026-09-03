@@ -1,666 +1,219 @@
-# 📊 Attendance Tracker
+# 📊 AttendanceFlow SaaS — Modern Academic Attendance Management Platform
 
-A modern, responsive web-based attendance management system designed to help students track their academic attendance, monitor eligibility, analyze subject-wise performance, and forecast future attendance.
+[![React](https://img.shields.io/badge/React-19.2.8-blue.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8.2.2-purple.svg)](https://vitejs.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Ready-emerald.svg)](https://supabase.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-19%2F19%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
 
-The project is currently designed as a React-based personal attendance tracker and is being developed toward a more flexible, multi-user platform where students can configure their own academic information and share their attendance through view-only links.
+**AttendanceFlow SaaS** is a modern, responsive, multi-user attendance tracking and forecasting platform designed for college students and institutions. It transforms attendance tracking from a passive spreadsheet chore into an active, predictive academic assistant.
 
----
-
-## 🚀 Project Overview
-
-Keeping track of attendance across multiple subjects, practical classes, holidays, examinations, and changing timetables can become difficult.
-
-**Attendance Tracker** aims to solve this problem by providing a centralized dashboard where students can:
-
-- Monitor overall attendance.
-- Track attendance subject-wise.
-- Record daily attendance.
-- View academic dates through an interactive calendar.
-- Check eligibility against a required attendance percentage.
-- Calculate classes required to recover attendance.
-- Determine the maximum number of classes that can be missed.
-- Forecast the best possible attendance.
-- Identify subjects requiring attention.
-- Manage attendance records using a simple interface.
-
-The project is being developed with scalability in mind so that it can eventually support multiple students with separate personal data and shareable attendance profiles.
+Every student gets their own isolated profile, semesters, custom subjects, weekly timetables, academic calendars, daily attendance logs, and an intelligent **"Can I Skip?" consequence simulator**.
 
 ---
 
-# ✨ Current Features
+## ✨ Features at a Glance
 
-## 📈 Overall Attendance Dashboard
+### 👥 1. Multi-Tenant Architecture & Data Isolation
+- Completely isolated data per user and per semester (`User → Profile → Semesters → [Subjects, Timetable, Attendance, Calendar]`).
+- Pluggable storage architecture: runs **100% locally out-of-the-box** with full seed data preservation, and connects seamlessly to **Supabase Cloud (PostgreSQL with Row-Level Security)** for cross-device synchronization.
 
-The dashboard provides a quick overview of:
+### 🎓 2. Semester Lifecycle Management
+- Transition between academic terms (e.g. **Semester V → Semester VI**) without overwriting historical records.
+- Archive completed semesters, mark the active semester, or clone course lists into fresh semesters with zero attendance baseline.
 
-- Overall attendance percentage
-- Total classes attended
-- Total classes conducted
-- Current eligibility status
-- Remaining classes
+### 📚 3. Dynamic Subject Directory & Custom Components
+- Add, edit, and delete courses with custom course codes, credits, and color tags.
+- Flexible class-type component configurator: supports **Lecture**, **Lab**, **Tutorial**, **Practical**, or specialized university components like **PP** (Programming/Practical) and **PR** (Practical) with individual attended and conducted counts.
 
-Example:
+### ⏰ 4. Interactive Weekly Timetable Builder
+- Day-by-day weekly schedule editor (Monday through Sunday).
+- Add class periods with start/end time pickers, course selectors, room/venue tags, and class types.
+- Directly powers daily attendance checks, future projections, and absence consequence simulations.
+
+### 🗓️ 5. Academic Calendar & Daily Attendance Logger
+- Interactive monthly calendar with intelligent visual badges:
+  - **Class Days**: scheduled periods for that day.
+  - **Holidays**: official university holidays.
+  - **Examinations**: distinguishes between instructional exams (IA tests/Practicals) and study leaves (MTE/ETE).
+  - **Weekends**: configurable non-working days (e.g., Sunday + Monday or Saturday + Sunday).
+  - **Non-Instructional Days**: toggle working days as non-instructional if university cancels classes.
+- Date inspector panel with 1-tap **Present ✓** and **Absent ✗** marking for scheduled periods.
+
+### 💤 6. "Can I Skip?" / "Can I Sleep?" Simulator
+- Dedicated absence consequence engine that answers: *"Can I skip tomorrow or this specific class?"*
+- Select a date or specific periods to simulate skipping.
+- Instant high-contrast verdict:
+  - 🟢 **SAFE TO SKIP**: All courses remain $\ge$ your configured eligibility threshold.
+  - 🟡 **PROCEED WITH CAUTION**: One or more courses drop below the required threshold.
+  - 🔴 **DO NOT SKIP**: Attendance drops into the critical shortage boundary ($< 65\%$).
+- Comprehensive impact table showing exact drop deltas (e.g. $75.0\% \rightarrow 71.4\%$, $-3.6\%$) and flagging vulnerable courses.
+
+### 🔮 7. Attendance Forecasting & Mathematical Recovery Roadmap
+- Course-by-course and overall projections based on remaining timetable classes in the semester.
+- Calculates:
+  - **Best Achievable Attendance**: maximum percentage if all remaining classes are attended.
+  - **Required Consecutive Classes**: exact classes needed to cross the target threshold.
+  - **Maximum Safe Absences**: number of classes you can miss while maintaining eligibility.
+  - **Recovery Feasibility**: mathematically evaluates whether recovery is possible given remaining schedule.
+
+### ✨ 8. AI Academic Calendar Importer
+- Upload official university calendar notices (PDF or Image).
+- Multimodal OCR/AI parsing extracts semester boundaries, holidays, and exam timeframes.
+- **Human-in-the-loop review table**: inspect, edit titles or dates, toggle "Counts as class", and confirm before applying to your live calendar.
+
+### 🔗 9. Public Shareable Profiles & Privacy Controls
+- Generate a read-only vanity link (`/u/:publicSlug`) to share verified attendance with parents, advisors, or mentors.
+- Granular privacy toggles: choose to show/hide overall attendance, subject names, course codes, timetable, and institution.
+- Integrated live visitor preview container.
+
+---
+
+## 📐 Mathematical Formulas
+
+### Attendance Percentage
+$$\text{Attendance \%} = \left( \frac{\text{Attended Classes}}{\text{Conducted Classes}} \right) \times 100$$
+
+### Required Consecutive Classes to Reach Target Threshold ($T$)
+Given attended classes $A$, conducted classes $C$, and target percentage $T$ (e.g., $75\%$):
+$$\text{Required Classes} = \max\left(0, \; \left\lceil \frac{T \cdot C - 100 \cdot A}{100 - T} \right\rceil \right)$$
+
+### Best Achievable Attendance with $R$ Remaining Classes
+$$\text{Best Possible \%} = \left( \frac{A + R}{C + R} \right) \times 100$$
+
+### Maximum Allowed Absences
+Simulates maximum absences $X \le R$ such that:
+$$\left( \frac{A + (R - X)}{C + R} \right) \times 100 \ge T$$
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology | Description |
+|---|---|---|
+| **Frontend** | React 19 + Vite 8 | Ultra-fast build, optimized bundle size, modern JSX transform |
+| **Styling** | Custom SaaS CSS | Plus Jakarta Sans typography, responsive desktop sidebar + mobile bottom nav |
+| **State & Data** | React Context + Repository Layer | Centralized reactive store with event bus and optimistic updates |
+| **Persistence** | LocalStorage + Supabase Cloud | Resilient offline mode with PostgreSQL cloud sync |
+| **Icons** | Custom Inline SVG Icons | Zero-dependency, lightweight, high-performance icons |
+| **Testing** | Automated Node.js Test Suite | 19 unit tests covering all mathematical formulas and boundary cases |
+
+---
+
+## 📁 Project Structure
 
 ```text
-Overall Attendance
-58.44%
-
-45 / 77 classes
-
-
-📚 Subject-Wise Attendance
-
-Attendance is calculated independently for every subject.
-
-Each subject displays:
-
-Subject name
-Subject code
-Attendance percentage
-Attended classes
-Conducted classes
-Eligibility status
-Future classes
-Required classes
-Maximum allowed absences
-🧩 PP / PR Component Support
-
-Subjects can contain different academic components such as:
-
-PP — Practical/Programming component
-PR — Practical component
-
-Attendance from the individual components is combined to calculate the subject's overall attendance.
-
-Example:
-
-PP: 9 / 10
-PR: 11 / 13
-
-Total: 20 / 23
-Attendance: 86.96%
-📅 Attendance Calendar
-
-The application contains an interactive academic calendar.
-
-The calendar can display:
-
-Regular class days
-Weekends
-Holidays
-Examinations
-Examination days that count as classes
-Historical dates
-Non-instructional days
-Days outside the semester
-Attendance records
-
-Users can select a date to view detailed information about that day.
-
-📝 Daily Attendance Recording
-
-For classes that have already taken place, attendance can be recorded as:
-
-Present
-Absent
-
-Attendance records are stored date-wise.
-
-Example structure:
-
-{
-  "2026-09-01": {
-    "R1UC544B": {
-      "PP": "present",
-      "PR": "absent"
-    }
-  }
-}
-
-Only classes that have actually been marked are stored.
-
-💾 Local Data Persistence
-
-Attendance records are currently stored using the browser's:
-
-localStorage
-
-This allows attendance data to remain available after refreshing or reopening the browser.
-
-The current storage key is:
-
-attendanceTrackerRecords
-📊 Attendance Calculations
-
-The project includes a dedicated attendance calculation utility.
-
-Attendance Percentage
-Attendance % = (Attended Classes / Conducted Classes) × 100
-
-Percentages are displayed up to two decimal places.
-
-🎯 Eligibility Calculation
-
-The application currently uses:
-
-75%
-
-as the default eligibility threshold.
-
-The threshold is stored centrally so it can be changed later without rewriting the entire application.
-
-🚨 Attendance Status
-
-Subjects can be classified according to their attendance percentage.
-
-Current concept:
-
-Attendance	Status
-≥ Eligibility Threshold	Eligible / Safe
-Below Eligibility Threshold	Precaution / Critical depending on percentage
-< 65%	Critical
-
-The project separately recognizes the 65% critical boundary.
-
-This distinction is important because a student may be below the eligibility requirement while still being above the critical attendance level.
-
-🔮 Attendance Forecast
-
-The application provides future attendance calculations.
-
-Required Classes
-
-Calculates the number of consecutive classes a student needs to attend to reach the configured attendance target.
-
-Example:
-
-Current Attendance: 68%
-Target: 75%
-
-Required Classes: 18
-Best Possible Attendance
-
-Calculates the maximum attendance percentage achievable if the student attends every remaining class.
-
-Example:
-
-Current Attendance: 68%
-
-If every remaining class is attended:
-
-Best Possible Attendance: 79.25%
-Maximum Allowed Absences
-
-Calculates how many upcoming classes can be missed while still maintaining the target attendance percentage.
-
-Example:
-
-Maximum Allowed Absences: 4
-Recovery Status
-
-The application determines whether a student can still recover to the required attendance level based on the number of classes remaining.
-
-Possible outcomes:
-
-Can Recover
-
-or
-
-Cannot Recover
-🗓️ Future Class Forecast
-
-The timetable and academic calendar are used to calculate upcoming classes.
-
-The system can determine:
-
-Total classes remaining
-Future classes by subject
-Future PP classes
-Future PR classes
-Subject-specific recovery possibilities
-Maximum allowed future absences
-📚 Subject Forecast
-
-Each subject can receive its own future attendance projection.
-
-The forecast includes:
-
-Future Classes
-Future PP Classes
-Future PR Classes
-Best Possible Attendance
-Required Classes
-Maximum Allowed Absences
-
-This allows students to understand which subjects need immediate attention.
-
-🏫 Academic Calendar
-
-The application uses a dedicated academic calendar configuration.
-
-It can account for:
-
-Semester start date
-Semester end date
-Holidays
-Examinations
-Non-instructional days
-Weekend configuration
-Class schedules
-
-This prevents the attendance forecast from simply assuming that every calendar day contains classes.
-
-🧱 Technology Stack
-
-The current project is built using:
-
-Frontend
-React
-JavaScript
-HTML
-CSS
-Development
-Vite
-VS Code
-npm
-Current Storage
-Browser localStorage
-Planned Backend
-
-A cloud database/backend will be introduced in a future version to support multiple users and online synchronization.
-
-📁 Project Structure
-
-A simplified project structure is:
 attendance-tracker/
-│
-├── src/
-│   │
-│   ├── components/
-│   │   └── AttendanceCalendar.jsx
-│   │
-│   ├── data/
-│   │   ├── attendanceData.js
-│   │   └── academicCalendar.js
-│   │
-│   ├── utils/
-│   │   ├── attendanceCalculations.js
-│   │   ├── timetableUtils.js
-│   │   └── academicCalendarUtils.js
-│   │
-│   ├── App.jsx
-│   └── index.css
-│
+├── index.html
 ├── package.json
-├── package-lock.json
-└── README.md
+├── vite.config.js
+├── eslint.config.js
+├── public/                    # Icons and assets
+└── src/
+    ├── main.jsx               # Application entry
+    ├── App.jsx                # SaaS shell (Sidebar, Header, BottomNav, Page Router)
+    ├── index.css              # SaaS design system & responsive stylesheet
+    ├── components/
+    │   ├── common/            # Reusable UI primitives
+    │   │   ├── Badge.jsx      # Semantic status badges
+    │   │   ├── Button.jsx     # Button variants (primary, secondary, outline, ghost)
+    │   │   ├── Modal.jsx      # Accessible dialog with backdrop blur & ESC dismiss
+    │   │   ├── EmptyState.jsx # Actionable empty state placeholders
+    │   │   └── Icons.jsx      # Zero-dependency inline SVG icon library
+    │   └── layout/            # Navigation layout
+    │       ├── Sidebar.jsx    # Desktop collapsible sidebar with semester switcher
+    │       ├── Header.jsx     # Top bar with status pill & quick action buttons
+    │       └── BottomNav.jsx  # Mobile thumb navigation bar
+    ├── context/
+    │   └── AppContext.jsx     # Centralized reactive SaaS state provider
+    ├── data/
+    │   ├── schema.sql         # PostgreSQL database schema with Row-Level Security (RLS)
+    │   ├── seedData.js        # Historical Semester V seed records (Adarsh Singh)
+    │   ├── academicCalendar.js# Legacy calendar reference
+    │   ├── attendanceData.js  # Legacy data reference
+    │   └── timetableData.js   # Legacy timetable reference
+    ├── pages/
+    │   ├── DashboardPage.jsx      # Executive dashboard & today's schedule
+    │   ├── SubjectsPage.jsx       # Course directory & component manager
+    │   ├── TimetablePage.jsx      # Interactive weekly schedule builder
+    │   ├── CalendarPage.jsx       # Academic calendar & date-wise attendance logger
+    │   ├── SkipSimulatorPage.jsx  # "Can I Skip?" absence impact engine
+    │   ├── ForecastPage.jsx       # Recovery projections & required classes table
+    │   ├── CalendarImportPage.jsx # AI calendar notice uploader & review table
+    │   ├── PublicProfilePage.jsx  # Public shareable link & privacy controls
+    │   └── SettingsPage.jsx       # Semester manager, threshold rules, & data export
+    ├── services/
+    │   ├── storageService.js  # Multi-tenant repository layer & migration engine
+    │   └── supabaseClient.js  # Cloud database & auth connector
+    └── utils/
+        ├── attendanceCalculations.js     # Pure math calculation engine
+        ├── skipSimulator.js              # Absence simulation engine
+        ├── academicCalendarUtils.js      # Date range, holiday, exam resolution
+        ├── timetableUtils.js             # Timetable schedule extraction
+        ├── futureAttendance.js           # Upcoming class projection helpers
+        └── testAttendanceCalculations.js # Automated test runner (19/19 passing)
+```
 
+---
 
-⚙️ Installation
-1. Clone the repository
-git clone YOUR_REPOSITORY_URL
-2. Enter the project directory
+## 🚀 Quick Start Guide
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Adarsh-Siingh999/attendance-tracker.git
 cd attendance-tracker
-3. Install dependencies
+```
+
+### 2. Install dependencies
+```bash
 npm install
-4. Start the development server
+```
+
+### 3. Run development server
+```bash
 npm run dev
+```
+Open your browser at `http://localhost:5173`. The application runs immediately in **full-featured mode** with your Semester V data preserved!
 
-The application will normally be available at:
-
-http://localhost:5173
-🖥️ Build for Production
-
-To create a production build:
-
+### 4. Build for production
+```bash
 npm run build
+```
 
-To preview the production build:
+### 5. Run tests & lint
+```bash
+# Run calculation engine unit tests
+node src/utils/testAttendanceCalculations.js
 
-npm run preview
-🔐 Current Data Model
+# Run code linter
+npm run lint
+```
 
-The current version contains predefined academic information.
+---
 
-Example:
+## ☁️ Connecting Supabase Cloud (Optional)
 
-export const initialAttendance = {
-  overall: {
-    attended: 45,
-    conducted: 77,
-  },
+The application works 100% offline out-of-the-box. To enable cross-device cloud synchronization:
 
-  subjects: [
-    {
-      name: "Problem-Driven Programming",
-      code: "R1UC544B",
-      components: {
-        PP: {
-          attended: 9,
-          conducted: 10,
-        },
-        PR: {
-          attended: 11,
-          conducted: 13,
-        },
-      },
-    },
-  ],
-};
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Go to **SQL Editor** in your Supabase dashboard and run the schema script provided at [`src/data/schema.sql`](src/data/schema.sql).
+3. Create a `.env` file in the project root:
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+4. Restart the development server (`npm run dev`). Your data will now synchronize to the cloud with Row-Level Security!
 
-This structure will eventually be replaced or supplemented by user-configurable data.
+---
 
-🚧 Current Limitations
+## 👨‍💻 Author
 
-The current version is primarily a single-user/local application.
+**Adarsh Singh**  
+B.Tech Computer Science & Engineering (AIML)  
+GitHub: [@Adarsh-Siingh999](https://github.com/Adarsh-Siingh999)
 
-Some information is currently configured directly inside the project.
+---
 
-For example:
+## 📜 License
 
-Subjects
-Initial attendance
-Academic calendar
-Timetable
-Attendance threshold
-
-The current version also uses browser-local storage rather than a cloud database.
-
-Therefore, the current application is not yet designed for complete multi-user online usage.
-
-🛣️ Future Roadmap
-
-The following features are planned for future versions.
-
-🔧 1. Editable Timetable
-
-Users will be able to:
-
-Add classes
-Edit classes
-Delete classes
-Change class timings
-Change subjects
-Change subject codes
-Configure PP/PR or other class types
-Create their own weekly timetable
-
-The timetable will no longer need to be permanently hard-coded.
-
-🗓️ 2. Editable Weekend Configuration
-
-Users will be able to choose which days are considered weekends.
-
-For example:
-
-Saturday → Weekend
-Sunday → Weekend
-
-But if a class exists on Saturday:
-
-Saturday → Weekend + Scheduled Class
-
-the application should still correctly include that class in attendance calculations.
-
-⚙️ 3. Editable Eligibility Criteria
-
-Users will be able to configure their own attendance requirements.
-
-For example:
-
-Eligibility Threshold: 75%
-Critical Threshold: 65%
-
-Another institution could potentially use:
-
-Eligibility Threshold: 80%
-Critical Threshold: 70%
-
-The application will automatically update calculations and statuses based on these settings.
-
-🧮 4. Improved Required-Class Logic
-
-The system will determine when Required Classes should actually be displayed.
-
-It will account for:
-
-Current attendance
-Eligibility threshold
-Critical threshold
-Number of classes remaining
-Whether recovery is mathematically possible
-
-The goal is to avoid showing confusing or unnecessary recovery information.
-
-🎓 5. Semester Management
-
-The application will support multiple semesters.
-
-The immediate transition will be:
-
-Semester 5
-      ↓
-Semester 6
-
-Semester 5 information should remain available as historical data.
-
-Semester 6 will have its own:
-
-Subjects
-Timetable
-Attendance
-Calendar information
-Calculations
-Forecasts
-
-Switching semesters must not overwrite previous-semester records.
-
-👤 6. Personal User Profiles
-
-The application will eventually support multiple users.
-
-A user will be able to configure:
-
-Name
-Semester
-Subjects
-Subject codes
-Timetable
-Attendance
-Weekend configuration
-Eligibility criteria
-
-This means the application will no longer be tied specifically to one student's information.
-
-👥 7. Multi-User Support
-
-The long-term goal is to allow different students to use the same application.
-
-For example:
-
-Student A
-    ↓
-Personal Attendance Data
-
-Student B
-    ↓
-Personal Attendance Data
-
-Student C
-    ↓
-Personal Attendance Data
-
-Each user's data must remain isolated.
-
-One student must never accidentally see or modify another student's private attendance data.
-
-🔐 8. Private Personal Access
-
-Each user will eventually have a private area where they can:
-
-Add attendance
-Edit attendance
-Configure subjects
-Edit timetable
-Change eligibility settings
-Manage semesters
-View forecasts
-
-Only the authorized user should be able to modify this information.
-
-🔗 9. Public View-Only Link
-
-The application will support a separate shareable link for attendance viewing.
-
-Example concept:
-
-Private Link
-↓
-Student manages attendance
-
-Public Link
-↓
-Other people can view attendance
-
-The public link will be view-only.
-
-Visitors should not be able to modify the attendance data.
-
-🌐 10. Online Deployment
-
-The project will be deployed online so it can be accessed through a normal web browser.
-
-The intended architecture is:
-
-React Application
-       ↓
-GitHub
-       ↓
-Cloud Hosting
-       ↓
-Public Web Application
-
-Users should eventually be able to access the application without installing anything locally.
-
-☁️ 11. Cloud Data Storage
-
-To support multi-user access and public sharing, the application will eventually use a cloud database.
-
-This will allow:
-
-Persistent online data
-User-specific data
-Data synchronization
-Multiple devices
-Private access
-Public view-only profiles
-🔄 12. Data Synchronization
-
-Future versions should allow a user to access their attendance from multiple devices.
-
-For example:
-
-Laptop
-   ↕
-Cloud Database
-   ↕
-Mobile
-
-Changes made on one device can eventually appear on another device.
-
-📱 13. Responsive Design
-
-The application is designed to work across:
-
-Desktop
-Laptop
-Tablet
-Mobile
-
-The interface uses responsive CSS to adapt the dashboard, subject cards, calendar, and attendance controls to smaller screens.
-
-🔮 Long-Term Vision
-
-The final goal is to transform this project from a personal attendance dashboard into a complete online attendance management platform.
-
-The intended experience is:
-
-Create Profile
-      ↓
-Select Semester
-      ↓
-Add Subjects
-      ↓
-Configure Timetable
-      ↓
-Configure Eligibility
-      ↓
-Record Attendance
-      ↓
-View Analytics
-      ↓
-Forecast Attendance
-      ↓
-Generate Public View Link
-
-A student should be able to use the application as their personal attendance assistant without modifying the source code.
-
-🎯 Project Goals
-
-The major goals of this project are:
-
-Make attendance tracking simple.
-Reduce manual attendance calculations.
-Provide accurate recovery predictions.
-Help students avoid attendance shortages.
-Make timetable management flexible.
-Support multiple semesters.
-Support different institutions and attendance criteria.
-Keep personal data private.
-Allow controlled public sharing.
-Make the application accessible online.
-Build a scalable architecture for future development.
-🤝 Contributing
-
-Contributions, suggestions, and improvements are welcome.
-
-If you want to contribute:
-
-Fork the repository.
-Create a new branch.
-git checkout -b feature/new-feature
-Make your changes.
-Commit your changes.
-git commit -m "Add new feature"
-Push the branch.
-git push origin feature/new-feature
-Open a Pull Request.
-📌 Development Status
-
-Current Status: 🟡 Active Development
-
-The core attendance tracking, calendar, forecasting, and local persistence functionality has been implemented.
-
-The project is currently being prepared for:
-
-Flexible configuration
-Semester management
-Multi-user support
-Cloud storage
-Private accounts
-Public view-only sharing
-Online deployment
-📜 License
-
-This project is currently available for educational and personal use.
-
-A formal open-source license can be added in a future version.
-
-👨‍💻 Author
-
-Adarsh Singh
-
-B.Tech Computer Science & Engineering (AIML)
-
-⭐ If you find this project useful, consider giving the repository a star!#   a t t e n d a n c e - t r a c k e r  
- 
+This project is open-source and available under the [MIT License](LICENSE).
