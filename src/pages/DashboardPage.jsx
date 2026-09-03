@@ -136,7 +136,8 @@ export function DashboardPage() {
         ) : (
           <div className="today-classes-list">
             {todayClasses.map((item, index) => {
-              const status = todayRecords[index] || null;
+              const recordEntry = todayRecords[index];
+              const status = typeof recordEntry === "object" ? recordEntry?.status : recordEntry || null;
               return (
                 <div key={index} className="today-class-card">
                   <div className="class-time-block">

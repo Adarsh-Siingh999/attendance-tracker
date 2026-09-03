@@ -189,8 +189,8 @@ export function CalendarPage() {
               const status = getDayStatus(dateStr);
               const isSelected = selectedDate === dateStr;
               const dateRecs = attendanceRecords[dateStr] || {};
-              const presCount = Object.values(dateRecs).filter((s) => s === "present").length;
-              const absCount = Object.values(dateRecs).filter((s) => s === "absent").length;
+              const presCount = Object.values(dateRecs).filter((s) => (typeof s === "object" ? s?.status : s) === "present").length;
+              const absCount = Object.values(dateRecs).filter((s) => (typeof s === "object" ? s?.status : s) === "absent").length;
 
               const holiday = getHoliday(dateStr, calendar?.holidays);
               const exam = getExamForDate(dateStr, calendar?.examinations);
@@ -285,7 +285,8 @@ export function CalendarPage() {
                 ) : (
                   <div className="inspector-classes-list">
                     {selectedClasses.map((cls, idx) => {
-                      const status = selectedRecords[idx] || null;
+                      const recordEntry = selectedRecords[idx];
+                      const status = typeof recordEntry === "object" ? recordEntry?.status : recordEntry || null;
                       return (
                         <div key={idx} className="inspector-class-item">
                           <div className="item-time">
