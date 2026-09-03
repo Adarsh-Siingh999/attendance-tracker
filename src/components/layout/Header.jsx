@@ -1,15 +1,27 @@
 import { useState } from "react";
 import { useApp } from "../../context/AppContext.jsx";
-import { IconSparkles } from "../common/Icons.jsx";
+import { IconSparkles, IconShare, IconX } from "../common/Icons.jsx";
 import { Button } from "../common/Button.jsx";
 import { AuthModal } from "../auth/AuthModal.jsx";
 import { UserGuideModal } from "../common/UserGuideModal.jsx";
+import { DeviceSyncModal } from "../common/DeviceSyncModal.jsx";
 
 export function Header() {
-  const { activeTab, setActiveTab, activeSemester, overall, currentUser, threshold, logoutUser } = useApp();
+  const {
+    activeTab,
+    setActiveTab,
+    activeSemester,
+    overall,
+    currentUser,
+    threshold,
+    logoutUser,
+    syncNotification,
+    clearSyncNotification,
+  } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   const titles = {
     dashboard: { title: "Dashboard", sub: "Live attendance overview & forecasting" },
@@ -28,6 +40,15 @@ export function Header() {
 
   return (
     <>
+      {syncNotification && (
+        <div className="cross-device-sync-banner">
+          <span>{syncNotification}</span>
+          <button type="button" className="sync-banner-close" onClick={clearSyncNotification} aria-label="Dismiss">
+            <IconX size={14} />
+          </button>
+        </div>
+      )}
+
       <header className="saas-header">
         <div className="header-left">
           <h1 className="header-title">{current.title}</h1>
@@ -75,6 +96,18 @@ export function Header() {
             </Button>
           )}
 
+          {/* CROSS-DEVICE LIVE SYNC BUTTON */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="header-sync-btn"
+            icon={<IconShare size={14} />}
+            onClick={() => setIsSyncModalOpen(true)}
+            title="Share live condition to another phone, laptop, or tablet"
+          >
+            📱 Sync Device
+          </Button>
+
           {/* USER ACCOUNT SWITCH BUTTON */}
           <button
             type="button"
@@ -103,6 +136,7 @@ export function Header() {
       {/* MODALS */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <UserGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+      <DeviceSyncModal isOpen={isSyncModalOpen} onClose={() => setIsSyncModalOpen(false)} />
     </>
   );
 }

@@ -9,10 +9,8 @@ import {
   calculateMaximumAllowedAbsences,
   calculatePercentage,
 } from "../utils/attendanceCalculations.js";
-import {
-  formatDate,
-  getClassesForDate,
-} from "../utils/academicCalendarUtils.js";
+import { formatDate, getClassesForDate } from "../utils/academicCalendarUtils.js";
+import { applyIncomingSyncFromUrl } from "../services/crossDeviceSyncService.js";
 
 const AppContext = createContext(null);
 
@@ -21,6 +19,9 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [users, setUsers] = useState(() => storageService.getUsers());
   const [currentUser, setCurrentUser] = useState(() => storageService.getCurrentUser());
+
+  // Cross-device sync incoming notification
+  const [syncNotification, setSyncNotification] = useState(null);
 
   // Core Storage Data for Current User
   const [profile, setProfile] = useState(() => storageService.getProfile());
@@ -48,6 +49,17 @@ export function AppProvider({ children }) {
   };
 
   useEffect(() => {
+    // Check if current URL contains incoming live state from phone / another device
+    applyIncomingSyncFromUrl().then((res) => {
+      if (res && res.applied) {
+        refreshState();
+        setSyncNotification(
+          `✨ Synced live condition from your device! Showing up-to-date attendance for ${res.name}.`
+        );
+        setTimeout(() => setSyncNotification(null), 8000);
+      }
+    });
+
     const handleUpdate = () => refreshState();
     window.addEventListener(STORAGE_EVENTS.DATA_REFRESHED, handleUpdate);
     window.addEventListener(STORAGE_EVENTS.ATTENDANCE_UPDATED, handleUpdate);
@@ -460,6 +472,10 @@ export function AppProvider({ children }) {
     savePublicSettings,
     threshold,
     criticalThreshold,
+
+    // Cross-Device Sync Notification
+    syncNotification,
+    clearSyncNotification: () => setSyncNotification(null),
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

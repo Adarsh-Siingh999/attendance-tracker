@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node src/utils/testAttendanceCalculations.js && node src/utils/testAttendanceButtons.js && node src/utils/testTimetableAi.js",
+    "test": "node src/utils/testAttendanceCalculations.js && node src/utils/testAttendanceButtons.js && node src/utils/testTimetableAi.js && node src/utils/testCrossDeviceSync.js",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -898,12 +898,69 @@ export const storageService = {
       exportedAt: new Date().toISOString(),
       profile: this.getProfile(),
       semesters: this.getSemesters(),
+      activeSemester: this.getActiveSemesterId(),
       subjects: safeGet(this.uKey("subjects"), []),
       timetables: safeGet(this.uKey("timetables"), {}),
       calendars: safeGet(this.uKey("calendars"), {}),
       attendanceRecords: safeGet(this.uKey("attendance_records"), {}),
       publicSettings: this.getPublicSettings(),
     };
+  },
+
+  importAllData(payload, options = { makeActive: true }) {
+    if (!payload || !payload.profile) {
+      throw new Error("Invalid sync payload structure");
+    }
+
+    const userId = payload.user?.id || payload.profile?.id || "user-synced";
+
+    // 1. Update/insert user in users list
+    const users = this.getUsers();
+    const existingIdx = users.findIndex((u) => u.id === userId);
+    const userSummary = {
+      id: userId,
+      name: payload.profile.fullName || payload.user?.name || "Student",
+      email: payload.user?.email || payload.profile.email || "synced@example.com",
+      institution: payload.profile.institution || "University",
+      program: payload.profile.program || "Academic Program",
+      avatarInitials: payload.profile.avatarInitials || "S",
+      role: "student",
+      lastSyncedAt: new Date().toISOString(),
+    };
+
+    if (existingIdx >= 0) {
+      users[existingIdx] = userSummary;
+    } else {
+      users.push(userSummary);
+    }
+    safeSet(GLOBAL_KEYS.USERS, users);
+
+    // 2. Hydrate all 8 partitions for this user
+    const activeSemId = payload.activeSemester || (payload.semesters && payload.semesters[0]?.id) || "sem-5-2026";
+    const normalizedSubjects = (payload.subjects || []).map((s) => ({
+      ...s,
+      semesterId: s.semesterId || activeSemId,
+    }));
+
+    this.initUserPartition(userId, {
+      profile: payload.profile,
+      semesters: payload.semesters || SEED_SEMESTERS,
+      activeSemester: activeSemId,
+      subjects: normalizedSubjects,
+      timetables: payload.timetables || {},
+      calendars: payload.calendars || {},
+      attendanceRecords: payload.attendanceRecords || {},
+      publicSettings: payload.publicSettings || SEED_PUBLIC_SETTINGS,
+    });
+
+    // 3. Make active user if requested
+    if (options.makeActive) {
+      safeSet(GLOBAL_KEYS.CURRENT_USER_ID, userId);
+      dispatchEvent(STORAGE_EVENTS.USER_CHANGED);
+      dispatchEvent(STORAGE_EVENTS.DATA_REFRESHED);
+    }
+
+    return userSummary;
   },
 
   resetToSeed() {
