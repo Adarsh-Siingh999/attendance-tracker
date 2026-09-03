@@ -2,6 +2,7 @@ import { AppProvider, useApp } from "./context/AppContext.jsx";
 import { Sidebar } from "./components/layout/Sidebar.jsx";
 import { Header } from "./components/layout/Header.jsx";
 import { BottomNav } from "./components/layout/BottomNav.jsx";
+import { AuthPage } from "./components/auth/AuthPage.jsx";
 
 // Page Views
 import { DashboardPage } from "./pages/DashboardPage.jsx";
@@ -17,7 +18,12 @@ import { SettingsPage } from "./pages/SettingsPage.jsx";
 import "./index.css";
 
 function SaaSAppContent() {
-  const { activeTab } = useApp();
+  const { activeTab, isAuthenticated } = useApp();
+
+  // If no user is logged in, show the clean SaaS Auth Gate
+  if (!isAuthenticated) {
+    return <AuthPage />;
+  }
 
   const renderActivePage = () => {
     switch (activeTab) {

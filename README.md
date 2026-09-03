@@ -4,9 +4,9 @@
 [![Vite](https://img.shields.io/badge/Vite-8.2.2-purple.svg)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Ready-emerald.svg)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-25%2F25%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
+[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
 
-**AttendanceFlow SaaS** is a modern, responsive, multi-user attendance tracking and forecasting platform designed specifically for college students and institutions (with **Galgotias University** presets). It transforms attendance tracking from a passive chore into an active, predictive academic copilot.
+**AttendanceFlow SaaS** is a modern, mobile-responsive, multi-user attendance tracking and forecasting platform designed specifically for college students and institutions (with **Galgotias University** presets). It transforms attendance tracking from a passive chore into an active, predictive academic copilot.
 
 Every student gets their own isolated profile, semesters, custom subjects, weekly timetables, academic calendars, daily attendance logs, and an intelligent **"Can I Skip?" consequence simulator**.
 
@@ -14,14 +14,12 @@ Every student gets their own isolated profile, semesters, custom subjects, weekl
 
 ## ✨ Features at a Glance
 
-### 👥 1. Multi-User Authentication & Account Switcher
-- **Independent Student Profiles**: Anyone can sign up, log in, or switch profiles on the same device.
-- **Complete Data Partitioning**: Each student's attendance records, courses, timetables, and calendars are strictly isolated under their own user account (`user-adarsh`, `user-xxx`).
-- **One-Click Switcher**: Easily switch between student profiles from the header or sidebar without re-entering credentials.
-- **Starter Templates**:
-  - *Galgotias University — Semester V (Autumn)*
-  - *Galgotias University — Semester VI (Spring)*
-  - *Clean Slate (Custom university/courses)*
+### 👥 1. Full Authentication Gate, Email/Password & Google Login
+- **Secure Email & Password Sign In**: Sign in with college or personal email (e.g. Gmail) and password with show/hide toggle.
+- **Clean Slate Guarantee for New Students**: When a new user registers with a new email, **everything starts 100% fresh** (their own private profile, empty course list, fresh timetable, and 0% attendance baseline).
+- **Local Seed Account (Adarsh Singh)**: Adarsh Singh's Semester V record (`singhadarshkr836@gmail.com`, 45/77 baseline attendance, 7 subjects) is saved locally and accessible via 1-click demo button or email sign-in.
+- **Google OAuth Simulation**: Single-click "Continue with Google" sign-in for frictionless access.
+- **Sign Out & Account Switcher**: Easy sign out from top header or sidebar to switch between students.
 
 ### 📖 2. Interactive New User Onboarding Guide
 - Built-in multi-step walkthrough tailored for university attendance rules:

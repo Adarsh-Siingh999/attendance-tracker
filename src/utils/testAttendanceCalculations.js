@@ -14,6 +14,7 @@ import {
   getTimetableForDate,
   generateSemesterScheduleFromTimetable,
 } from "./academicCalendarUtils.js";
+import { storageService } from "../services/storageService.js";
 
 console.log("=== RUNNING ATTENDANCE ENGINE TEST SUITE ===");
 
@@ -123,6 +124,28 @@ assert(scheduleResult.totalDays === 14, "AI Schedule counts exact 14 days in two
 assert(scheduleResult.instructionalDays === 3, "AI Schedule counts exactly 3 instructional days (2 Mondays + 1 Tuesday, skipping 1 holiday Tuesday)");
 assert(scheduleResult.subjectBreakdown["CS601"] === 2, "AI Schedule maps 2 Cloud classes across 2 Mondays");
 assert(scheduleResult.subjectBreakdown["AI602"] === 1, "AI Schedule maps 1 DL class, accurately skipping Republic Day holiday");
+
+// 9. Authentication & Credential Storage Tests
+const validAuth = storageService.authenticateUser("singhadarshkr836@gmail.com", "adarsh123");
+assert(validAuth.success === true, "Valid Adarsh Singh credentials authenticate successfully");
+
+const invalidAuth = storageService.authenticateUser("singhadarshkr836@gmail.com", "wrongpassword");
+assert(invalidAuth.success === false, "Incorrect password fails authentication");
+
+const nonexistentAuth = storageService.authenticateUser("nonexistent@university.edu", "pass123");
+assert(nonexistentAuth.success === false, "Unregistered email fails authentication");
+
+// 10. Clean New User Registration Tests
+const regResult = storageService.registerUser({
+  name: "New Student",
+  email: "newstudent@gmail.com",
+  password: "securepassword",
+  institution: "Galgotias University",
+  program: "B.Tech CSE",
+  template: "clean",
+});
+assert(regResult.success === true, "New student can register cleanly with valid credentials");
+assert(regResult.user.name === "New Student", "New user profile has correct student name");
 
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {

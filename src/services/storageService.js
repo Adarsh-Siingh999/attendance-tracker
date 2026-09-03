@@ -16,6 +16,7 @@ import {
 const GLOBAL_KEYS = {
   USERS: "at_saas_users_list",
   CURRENT_USER_ID: "at_saas_current_user_id",
+  CREDENTIALS: "at_saas_credentials_store",
   LEGACY_RECORDS: "attendanceTrackerRecords",
   LEGACY_NON_INSTRUCTIONAL: "attendanceTrackerNonInstructionalDays",
 };
@@ -31,7 +32,7 @@ export const STORAGE_EVENTS = {
 export const DEFAULT_USER = {
   id: "user-adarsh",
   name: "Adarsh Singh",
-  email: "adarsh@galgotias.edu",
+  email: "singhadarshkr836@gmail.com",
   institution: "Galgotias University",
   program: "B.Tech Computer Science & Engineering (AIML)",
   avatarInitials: "AS",
@@ -92,6 +93,7 @@ export const GALGOTIAS_SEM6_PRESET = {
 
 function safeGet(key, fallback) {
   try {
+    if (typeof localStorage === "undefined") return fallback;
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw);
@@ -103,6 +105,7 @@ function safeGet(key, fallback) {
 
 function safeSet(key, value) {
   try {
+    if (typeof localStorage === "undefined") return;
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
     console.error(`[StorageService] Failed to write ${key}:`, err);
@@ -148,7 +151,27 @@ export const storageService = {
       safeSet(GLOBAL_KEYS.CURRENT_USER_ID, currentUserId);
     }
 
-    // 2. Initialize default partition for user-adarsh if not present
+    // 2. Initialize default credentials if not present
+    let creds = safeGet(GLOBAL_KEYS.CREDENTIALS, null);
+    if (!creds) {
+      creds = {
+        "singhadarshkr836@gmail.com": {
+          userId: DEFAULT_USER.id,
+          email: "singhadarshkr836@gmail.com",
+          password: "adarsh123",
+          name: DEFAULT_USER.name,
+        },
+        "adarsh@galgotias.edu": {
+          userId: DEFAULT_USER.id,
+          email: "adarsh@galgotias.edu",
+          password: "adarsh123",
+          name: DEFAULT_USER.name,
+        },
+      };
+      safeSet(GLOBAL_KEYS.CREDENTIALS, creds);
+    }
+
+    // 3. Initialize default partition for user-adarsh if not present
     const adarshKey = `at_saas_u_${DEFAULT_USER.id}_profile`;
     if (!localStorage.getItem(adarshKey)) {
       this.initUserPartition(DEFAULT_USER.id, {
@@ -206,8 +229,15 @@ export const storageService = {
   },
 
   logout() {
-    // When user logs out, we can switch to guest or keep user selection screen
+    safeSet(GLOBAL_KEYS.CURRENT_USER_ID, null);
     dispatchEvent(STORAGE_EVENTS.USER_CHANGED, { userId: null });
+    dispatchEvent(STORAGE_EVENTS.DATA_REFRESHED);
+  },
+
+  isAuthenticated() {
+    const id = safeGet(GLOBAL_KEYS.CURRENT_USER_ID, null);
+    const users = this.getUsers();
+    return Boolean(id && users.some((u) => u.id === id));
   },
 
   createUser({ name, email, institution, program, startSemester = "sem-5", template = "galgotias-sem5" }) {
@@ -384,6 +414,101 @@ export const storageService = {
     // Switch to new user
     this.login(id);
     return newUser;
+  },
+
+  getCredentials() {
+    return safeGet(GLOBAL_KEYS.CREDENTIALS, {
+      "singhadarshkr836@gmail.com": {
+        userId: DEFAULT_USER.id,
+        email: "singhadarshkr836@gmail.com",
+        password: "adarsh123",
+        name: DEFAULT_USER.name,
+      },
+    });
+  },
+
+  authenticateUser(email, password) {
+    if (!email || !password) {
+      return { success: false, error: "Please enter both email and password." };
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const creds = this.getCredentials();
+    const account = creds[cleanEmail];
+
+    if (!account) {
+      return { success: false, error: "No account found with this email. Please create an account." };
+    }
+
+    if (account.password !== password) {
+      return { success: false, error: "Incorrect password. Please try again." };
+    }
+
+    this.login(account.userId);
+    return { success: true, user: this.getCurrentUser() };
+  },
+
+  registerUser({ name, email, password, institution = "Galgotias University", program = "B.Tech Computer Science & Engineering", template = "clean" }) {
+    if (!name || !email || !password) {
+      return { success: false, error: "Full name, email, and password are required." };
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const creds = this.getCredentials();
+
+    if (creds[cleanEmail]) {
+      return { success: false, error: "An account with this email already exists. Please sign in." };
+    }
+
+    if (password.length < 4) {
+      return { success: false, error: "Password must be at least 4 characters long." };
+    }
+
+    // Create user partition (starts clean with zero attendance by default!)
+    const newUser = this.createUser({
+      name,
+      email: cleanEmail,
+      institution,
+      program,
+      template, // "clean" ensures everything is new!
+    });
+
+    // Save credentials
+    creds[cleanEmail] = {
+      userId: newUser.id,
+      email: cleanEmail,
+      password,
+      name: newUser.name,
+    };
+    safeSet(GLOBAL_KEYS.CREDENTIALS, creds);
+
+    this.login(newUser.id);
+    return { success: true, user: newUser };
+  },
+
+  loginWithGoogle(googleUser = null) {
+    const defaultGoogle = {
+      name: "Google Student",
+      email: "student@gmail.com",
+      institution: "Galgotias University",
+      program: "B.Tech Computer Science & Engineering",
+    };
+    const profile = googleUser || defaultGoogle;
+    const cleanEmail = profile.email.toLowerCase();
+    const creds = this.getCredentials();
+
+    if (creds[cleanEmail]) {
+      this.login(creds[cleanEmail].userId);
+      return { success: true, user: this.getCurrentUser() };
+    }
+
+    // Auto-register fresh account
+    return this.registerUser({
+      name: profile.name,
+      email: cleanEmail,
+      password: `gauth-${Date.now()}`,
+      institution: profile.institution || "Galgotias University",
+      program: profile.program || "B.Tech Computer Science & Engineering",
+      template: "clean", // Everything new!
+    });
   },
 
   // --------------------------------------------------------------------------

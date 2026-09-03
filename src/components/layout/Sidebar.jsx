@@ -25,6 +25,7 @@ export function Sidebar() {
     setActiveSemesterId,
     overall,
     threshold,
+    logoutUser,
   } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -109,7 +110,7 @@ export function Sidebar() {
             type="button"
             className="user-profile-widget clickable-widget"
             onClick={() => setIsAuthOpen(true)}
-            title="Click to switch profile or log out"
+            title="Click to switch profile"
           >
             <div className="user-avatar">{currentUser?.avatarInitials || "AS"}</div>
             <div className="user-info">
@@ -122,6 +123,15 @@ export function Sidebar() {
               </span>
             </div>
             <span className="switch-icon-tag ml-auto">⇄</span>
+          </button>
+
+          <button
+            type="button"
+            className="sidebar-logout-btn"
+            onClick={logoutUser}
+            title="Sign out of AttendanceFlow"
+          >
+            Sign Out
           </button>
         </div>
       </aside>

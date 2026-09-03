@@ -78,6 +78,30 @@ export function AppProvider({ children }) {
     refreshState();
   };
 
+  const handleAuthenticate = (email, password) => {
+    const res = storageService.authenticateUser(email, password);
+    if (res.success) {
+      refreshState();
+    }
+    return res;
+  };
+
+  const handleRegister = (userData) => {
+    const res = storageService.registerUser(userData);
+    if (res.success) {
+      refreshState();
+    }
+    return res;
+  };
+
+  const handleGoogleLogin = (profile = null) => {
+    const res = storageService.loginWithGoogle(profile);
+    if (res.success) {
+      refreshState();
+    }
+    return res;
+  };
+
   const handleCreateUser = (userData) => {
     const newUser = storageService.createUser(userData);
     refreshState();
@@ -328,7 +352,11 @@ export function AppProvider({ children }) {
     setActiveTab,
     users,
     currentUser,
+    isAuthenticated: Boolean(currentUser && currentUser.id),
     loginUser: handleLogin,
+    authenticateUser: handleAuthenticate,
+    registerUser: handleRegister,
+    loginWithGoogle: handleGoogleLogin,
     logoutUser: handleLogout,
     createUser: handleCreateUser,
     profile,

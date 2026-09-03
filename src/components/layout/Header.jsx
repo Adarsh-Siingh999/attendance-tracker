@@ -6,7 +6,7 @@ import { AuthModal } from "../auth/AuthModal.jsx";
 import { UserGuideModal } from "../common/UserGuideModal.jsx";
 
 export function Header() {
-  const { activeTab, setActiveTab, activeSemester, overall, currentUser, threshold } = useApp();
+  const { activeTab, setActiveTab, activeSemester, overall, currentUser, threshold, logoutUser } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -80,12 +80,23 @@ export function Header() {
             type="button"
             className="user-pill-btn"
             onClick={() => setIsAuthOpen(true)}
-            title="Switch student profile or login"
+            title="Switch student profile or view accounts"
           >
             <span className="user-pill-avatar">{currentUser?.avatarInitials || "AS"}</span>
             <span className="user-pill-name">{currentUser?.name?.split(" ")[0] || "Student"}</span>
             <span className="user-pill-switch-tag">Switch ▾</span>
           </button>
+
+          {/* LOG OUT BUTTON */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logoutUser}
+            className="logout-nav-btn"
+            title="Log out of AttendanceFlow"
+          >
+            Log Out
+          </Button>
         </div>
       </header>
 
