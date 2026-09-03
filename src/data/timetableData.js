@@ -421,11 +421,79 @@ using the timetable that was actually
 active on those dates.
 */
 
+export const augustSemesterTimetable = {
+  // Tuesday (August Orientation & Core Labs)
+  2: [
+    { start: "08:30", end: "09:20", subject: "Programming Skills with Advanced Data Structures", code: "R1UC543L", type: "PR", room: "Lab 3" },
+    { start: "09:20", end: "10:10", subject: "Programming Skills with Advanced Data Structures", code: "R1UC543L", type: "PR", room: "Lab 3" },
+    { start: "10:15", end: "11:05", subject: "Programming Skills with Advanced Data Structures", code: "R1UC543L", type: "PR", room: "Lab 3" },
+    { start: "11:05", end: "11:55", subject: "Machine Learning", code: "R1UC525B", type: "PP", room: "Room 402" },
+    { start: "12:00", end: "12:50", subject: "System Design", code: "R1UC515T", type: "PP", room: "Room 402" },
+    { start: "13:45", end: "14:35", subject: "Applied Predictive Analysis", code: "R1UC552B", type: "PP", room: "Room 403" },
+    { start: "14:35", end: "15:25", subject: "Applied Predictive Analysis", code: "R1UC552B", type: "PP", room: "Room 403" },
+    { start: "15:30", end: "16:20", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+  ],
+  // Wednesday
+  3: [
+    { start: "08:30", end: "09:20", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "09:20", end: "10:10", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "10:15", end: "11:05", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+    { start: "11:05", end: "11:55", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+    { start: "12:00", end: "12:50", subject: "System Design", code: "R1UC515T", type: "PP", room: "Room 402" },
+    { start: "13:45", end: "14:35", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PR", room: "Lab 2" },
+    { start: "14:35", end: "15:25", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PR", room: "Lab 2" },
+    { start: "15:30", end: "16:20", subject: "Soft Computing", code: "R1UC549B", type: "PP", room: "Room 403" },
+  ],
+  // Thursday
+  4: [
+    { start: "08:30", end: "09:20", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+    { start: "09:20", end: "10:10", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+    { start: "10:15", end: "11:05", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+    { start: "11:05", end: "11:55", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "12:00", end: "12:50", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "12:50", end: "13:40", subject: "System Design", code: "R1UC515T", type: "PR", room: "Lab 1" },
+    { start: "14:35", end: "15:25", subject: "Machine Learning", code: "R1UC525B", type: "PR", room: "Lab 4" },
+    { start: "15:30", end: "16:20", subject: "Machine Learning", code: "R1UC525B", type: "PR", room: "Lab 4" },
+  ],
+  // Friday
+  5: [
+    { start: "09:20", end: "10:10", subject: "Soft Computing", code: "R1UC549B", type: "PP", room: "Room 403" },
+    { start: "10:15", end: "11:05", subject: "Machine Learning", code: "R1UC525B", type: "PP", room: "Room 402" },
+    { start: "11:05", end: "11:55", subject: "Soft Computing", code: "R1UC549B", type: "PP", room: "Room 403" },
+    { start: "12:50", end: "13:40", subject: "Machine Learning", code: "R1UC525B", type: "PP", room: "Room 402" },
+    { start: "13:45", end: "14:35", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PP", room: "Room 401" },
+    { start: "14:35", end: "15:25", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PR", room: "Lab 2" },
+    { start: "15:30", end: "16:20", subject: "Problem-Driven Programming", code: "R1UC544B", type: "PR", room: "Lab 2" },
+  ],
+  // Saturday
+  6: [
+    { start: "09:20", end: "10:10", subject: "Applied Predictive Analysis", code: "R1UC552B", type: "PP", room: "Room 403" },
+    { start: "10:15", end: "11:05", subject: "Applied Predictive Analysis", code: "R1UC552B", type: "PR", room: "Lab 3" },
+    { start: "11:05", end: "11:55", subject: "Applied Predictive Analysis", code: "R1UC552B", type: "PR", room: "Lab 3" },
+    { start: "12:50", end: "13:40", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "13:45", end: "14:35", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "14:35", end: "15:25", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+    { start: "15:30", end: "16:20", subject: "Soft Skills & Aptitude Readiness", code: "O1UA505L", type: "PR", room: "Audi B" },
+  ],
+};
+
 export const timetableVersions = [
   {
-    id: "semester-v-current",
+    id: "semester-v-august-baseline",
+    name: "August Baseline Timetable",
+    effectiveFrom: "2026-08-01",
+    effectiveTo: "2026-08-31",
+    isBaseline: true,
+    description: "Initial foundational routine active throughout August 2026 (Baseline Period)",
+    timetable: augustSemesterTimetable,
+  },
+  {
+    id: "semester-v-september-current",
+    name: "September Onward Timetable",
     effectiveFrom: "2026-09-01",
     effectiveTo: null,
+    isBaseline: false,
+    description: "Revised Autumn schedule effective from September 1, 2026 onward",
     timetable: semesterTimetable,
   },
 ];

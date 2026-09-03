@@ -40,7 +40,11 @@ export function CalendarPage() {
     attendanceRecords,
     markAttendance,
     clearDateAttendance,
+    activeSemester,
+    overall,
   } = useApp();
+
+  const liveStart = activeSemester?.liveAttendanceStart || "2026-09-01";
 
   const [currentDate, setCurrentDate] = useState(() => {
     if (calendar?.startDate) {
@@ -171,6 +175,25 @@ export function CalendarPage() {
             </button>
           </div>
 
+          {/* AUGUST BASELINE VS SEPTEMBER LIVE TRACKING BANNER */}
+          {month === 7 && year === 2026 && (
+            <div className="cal-version-strip baseline">
+              <div className="version-strip-badge">📌 August Baseline Period</div>
+              <div className="version-strip-text">
+                All August dates use the <strong>August Baseline Timetable</strong>. Total August attendance is preserved as your initial baseline ({overall.attended}/{overall.conducted} classes). Daily live attendance logging starts on <strong>September 1, 2026</strong>.
+              </div>
+            </div>
+          )}
+
+          {month >= 8 && year === 2026 && (
+            <div className="cal-version-strip live">
+              <div className="version-strip-badge">⚡ Live Tracking Active</div>
+              <div className="version-strip-text">
+                Scheduled using the <strong>September Onward Timetable</strong>. Classes marked Present or Absent increment your live active attendance record.
+              </div>
+            </div>
+          )}
+
           <div className="calendar-weekdays-row">
             {WEEKDAYS.map((wd) => (
               <div key={wd} className="cal-weekday-label">
@@ -241,6 +264,31 @@ export function CalendarPage() {
                   <IconX size={16} />
                 </button>
               </div>
+
+              {/* TIMETABLE VERSION & BASELINE STATUS BANNER */}
+              {selectedDate && selectedDate < liveStart && (
+                <div className="inspector-banner baseline-banner">
+                  <div className="banner-tag-row">
+                    <span className="period-pill baseline">📌 August Baseline Period</span>
+                    <span className="timetable-version-tag">August Baseline Timetable</span>
+                  </div>
+                  <p className="period-subtext">
+                    Classes on this date use the <strong>August Baseline Timetable</strong>. Total attendance across August is preserved in your starting baseline ({overall.attended}/{overall.conducted} classes). Daily live increments are counted from <strong>September 1 onward</strong>.
+                  </p>
+                </div>
+              )}
+
+              {selectedDate && selectedDate >= liveStart && (
+                <div className="inspector-banner live-tracking-banner">
+                  <div className="banner-tag-row">
+                    <span className="period-pill live">⚡ Live Attendance Active</span>
+                    <span className="timetable-version-tag">September Onward Timetable</span>
+                  </div>
+                  <p className="period-subtext">
+                    Classes on this date reflect the <strong>September Onward Timetable</strong>. Marking Present or Absent on this date updates your live attendance records.
+                  </p>
+                </div>
+              )}
 
               {selectedHoliday && (
                 <div className="inspector-banner holiday-banner">

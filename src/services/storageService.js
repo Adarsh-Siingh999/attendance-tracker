@@ -671,7 +671,19 @@ export const storageService = {
   getTimetableData(semesterId) {
     const targetId = semesterId || this.getActiveSemesterId();
     const allTimetables = safeGet(this.uKey("timetables"), SEED_TIMETABLE);
-    return allTimetables[targetId] || {};
+    const data = allTimetables[targetId] || SEED_TIMETABLE[targetId] || {};
+
+    // Ensure versioned structure is present for August Baseline and September Onward
+    if (data && (!data.versions || !Array.isArray(data.versions) || data.versions.length === 0)) {
+      if (SEED_TIMETABLE[targetId]?.versions) {
+        return {
+          ...data,
+          current: data.current || data,
+          versions: SEED_TIMETABLE[targetId].versions,
+        };
+      }
+    }
+    return data;
   },
 
   /**

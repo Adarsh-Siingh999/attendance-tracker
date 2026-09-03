@@ -17,6 +17,7 @@ import {
   generateSemesterScheduleFromTimetable,
 } from "./academicCalendarUtils.js";
 import { storageService } from "../services/storageService.js";
+import { timetableVersions, augustSemesterTimetable, semesterTimetable } from "../data/timetableData.js";
 
 console.log("=== RUNNING ATTENDANCE ENGINE TEST SUITE ===");
 
@@ -261,6 +262,32 @@ assert(budgetC.canRecover === false, "Cannot recover to 75% even with 100% futur
 // Case D: 30 attended out of 30 conducted with 0 future classes scheduled (100% attendance so far)
 const budgetD = calculateSemesterAbsenceBudget(30, 30, 0, 75);
 assert(budgetD.remainingSafeSkips === 10, "With 0 future classes, returns immediate consecutive bunk allowance (10 skips)");
+
+// 16. August Baseline Timetable vs September Timetable Resolution
+// August 18, 2026 falls within the August baseline period
+const augResolvedTt = getTimetableForDate("2026-08-18", { versions: timetableVersions });
+assert(augResolvedTt === augustSemesterTimetable, "August date resolves to August Baseline Timetable");
+
+// September 8, 2026 falls within the September onward period
+const sepResolvedTt = getTimetableForDate("2026-09-08", { versions: timetableVersions });
+assert(sepResolvedTt === semesterTimetable, "September date resolves to September Onward Timetable");
+
+// Classes resolved on an August date have valid periods from August schedule
+const augDayClasses = getClassesForDate("2026-08-18", {
+  calendar: { weekends: [0, 1] },
+  timetable: { versions: timetableVersions },
+  ignoreSemesterRange: true,
+});
+assert(augDayClasses.length === 8, "August 18 (Tuesday) has 8 classes from August Baseline Timetable");
+assert(augDayClasses[0].code === "R1UC543L", "First August Tuesday class is Programming Skills Lab");
+
+// Classes resolved on a September date have valid periods from September schedule
+const sepDayClasses = getClassesForDate("2026-09-08", {
+  calendar: { weekends: [0, 1] },
+  timetable: { versions: timetableVersions },
+  ignoreSemesterRange: true,
+});
+assert(sepDayClasses.length === 8, "September 8 (Tuesday) has 8 classes from September Timetable");
 
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {

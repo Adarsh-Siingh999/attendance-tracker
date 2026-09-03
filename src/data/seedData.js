@@ -1,3 +1,5 @@
+import { timetableVersions, semesterTimetable } from "./timetableData.js";
+
 /**
  * Seed data preserving the original Semester V setup for Adarsh Singh.
  * This ensures that existing academic records, timetables, calendars,
@@ -124,6 +126,8 @@ export const SEED_SUBJECTS = [
 
 export const SEED_TIMETABLE = {
   "sem-5-2026": {
+    current: semesterTimetable,
+    versions: timetableVersions,
     // 2 = Tuesday
     2: [
       { start: "08:30", end: "09:20", subject: "Programming Skills with Advanced Data Structures", code: "R1UC543L", type: "PR", room: "Lab 3" },

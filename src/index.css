@@ -1787,6 +1787,85 @@ body {
 .weekend-banner { background: var(--bg); color: var(--text-muted); }
 .noninst-banner { background: #fef2f2; color: var(--danger); }
 
+/* CALENDAR MONTH VERSION STRIP */
+.cal-version-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cal-version-strip.baseline {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.cal-version-strip.live {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.version-strip-badge {
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.version-strip-text {
+  flex: 1;
+}
+
+/* INSPECTOR BASELINE & LIVE BANNERS */
+.inspector-banner.baseline-banner {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.inspector-banner.live-tracking-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.banner-tag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.period-pill {
+  font-weight: 800;
+  font-size: 11px;
+}
+
+.timetable-version-tag {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.period-subtext {
+  font-size: 11px;
+  line-height: 1.35;
+  margin: 0;
+  font-weight: normal;
+}
+
 .inspector-quick-actions {
   margin-bottom: 16px;
 }

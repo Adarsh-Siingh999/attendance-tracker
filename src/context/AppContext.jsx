@@ -161,10 +161,16 @@ export function AppProvider({ children }) {
     let present = 0;
     let absent = 0;
 
+    const liveStart = activeSemester?.liveAttendanceStart || "2026-09-01";
+
     for (const [date, records] of Object.entries(attendanceRecords || {})) {
       if (!records || typeof records !== "object") continue;
 
-      const classes = getClassesForDate(date, { calendar, timetable: timetableData });
+      // August attendance is preserved as the initial baseline in subject components.
+      // Live daily increments are tracked and counted strictly from September 1 onward.
+      if (liveStart && date < liveStart) continue;
+
+      const classes = getClassesForDate(date, { calendar, timetable: timetableData, ignoreSemesterRange: true });
 
       for (const [classIndex, rawEntry] of Object.entries(records)) {
         let status;
