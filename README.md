@@ -4,7 +4,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8.2.2-purple.svg)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Ready-emerald.svg)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
+[![Tests](https://img.shields.io/badge/Tests-31%2F31%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
 
 **AttendanceFlow SaaS** is a modern, mobile-responsive, multi-user attendance tracking and forecasting platform designed specifically for college students and institutions (with **Galgotias University** presets). It transforms attendance tracking from a passive chore into an active, predictive academic copilot.
 

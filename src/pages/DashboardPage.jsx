@@ -77,7 +77,7 @@ export function DashboardPage() {
 
         <div className="overview-card">
           <span className="card-label">Classes Remaining</span>
-          <strong className="card-value">{classesRemaining}</strong>
+          <strong className="card-value">{classesRemaining ?? 0}</strong>
           <small className="card-subtext">Until semester completion</small>
         </div>
 

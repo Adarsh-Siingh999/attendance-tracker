@@ -147,6 +147,20 @@ const regResult = storageService.registerUser({
 assert(regResult.success === true, "New student can register cleanly with valid credentials");
 assert(regResult.user.name === "New Student", "New user profile has correct student name");
 
+// 11. Classes Remaining Until Completion Verification
+const remProjection = generateSemesterScheduleFromTimetable({
+  startDate: "2026-09-04",
+  endDate: "2026-09-18",
+  weekends: [0, 1], // Sunday + Monday weekends
+  holidays: [],
+  examinations: {},
+  weeklyTimetable: {
+    2: [{ subject: "ML" }, { subject: "AI" }], // Tuesday: 2 classes
+    3: [{ subject: "ML" }],                     // Wednesday: 1 class
+  },
+});
+assert(remProjection.totalClasses === 6, "Calculates exact remaining classes across 2 weeks (3 classes/week * 2 = 6 classes)");
+
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {
   process.exit(1);

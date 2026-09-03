@@ -16,7 +16,7 @@ export function ForecastPage() {
         <div>
           <h2 className="section-heading">Attendance Projections & Recovery Roadmap</h2>
           <p className="section-desc">
-            Mathematical projections based on your remaining timetable classes ({classesRemaining} classes left in this semester).
+            Mathematical projections based on your remaining timetable classes ({classesRemaining ?? 0} classes left in this semester).
           </p>
         </div>
       </div>

@@ -221,9 +221,10 @@ export function AppProvider({ children }) {
     return calculateOverallAttendance(totalAttended, totalConducted);
   }, [subjects]);
 
-  // Future Class Projection (From Tomorrow to Semester End or Exam End)
+  // Future Class Projection (From Today/Tomorrow to Semester End or Exam End)
   const futureClasses = useMemo(() => {
     const today = new Date();
+    const todayStr = formatDate(today);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const startDate = formatDate(tomorrow);
@@ -231,25 +232,47 @@ export function AppProvider({ children }) {
     // Find latest exam or semester end date
     const examEndDates = Object.values(calendar?.examinations || {}).map((e) => e.endDate).filter(Boolean);
     const latestExam = examEndDates.sort().at(-1);
-    const endDate = calendar?.endDate || latestExam || startDate;
 
-    if (startDate > endDate) return [];
+    // Fallback to active semester endDate, latest exam, or 120 days from start
+    let endDate = calendar?.endDate || activeSemester?.endDate || latestExam;
+    if (!endDate) {
+      const base = activeSemester?.startDate ? new Date(`${activeSemester.startDate}T00:00:00`) : today;
+      const calcEnd = new Date(base);
+      calcEnd.setDate(calcEnd.getDate() + 120);
+      endDate = formatDate(calcEnd);
+    }
 
     const list = [];
-    const current = new Date(`${startDate}T00:00:00`);
-    const end = new Date(`${endDate}T00:00:00`);
 
-    while (current <= end) {
-      const dateStr = formatDate(current);
-      const dayClasses = getClassesForDate(dateStr, { calendar, timetable: timetableData });
-      for (const item of dayClasses) {
-        list.push({ date: dateStr, ...item });
+    // 1. Include today's remaining unmarked classes if today is within semester
+    const semStart = activeSemester?.startDate || "2000-01-01";
+    if (todayStr >= semStart && todayStr <= endDate) {
+      const todayClasses = getClassesForDate(todayStr, { calendar, timetable: timetableData });
+      const todayRecords = attendanceRecords[todayStr] || {};
+      todayClasses.forEach((item, index) => {
+        if (!todayRecords[index]) {
+          list.push({ date: todayStr, ...item, isToday: true });
+        }
+      });
+    }
+
+    // 2. Add classes from tomorrow to endDate
+    if (startDate <= endDate) {
+      const current = new Date(`${startDate}T00:00:00`);
+      const end = new Date(`${endDate}T00:00:00`);
+
+      while (current <= end) {
+        const dateStr = formatDate(current);
+        const dayClasses = getClassesForDate(dateStr, { calendar, timetable: timetableData });
+        for (const item of dayClasses) {
+          list.push({ date: dateStr, ...item });
+        }
+        current.setDate(current.getDate() + 1);
       }
-      current.setDate(current.getDate() + 1);
     }
 
     return list;
-  }, [calendar, timetableData]);
+  }, [calendar, timetableData, activeSemester, attendanceRecords]);
 
   const classesRemaining = futureClasses.length;
 
@@ -384,6 +407,7 @@ export function AppProvider({ children }) {
     // Attendance Metrics & Projections
     overall,
     futureClasses,
+    classesRemaining,
     overallForecast,
     subjectForecasts,
     publicSettings,
