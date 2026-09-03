@@ -91,9 +91,13 @@ export const GALGOTIAS_SEM6_PRESET = {
   },
 };
 
+const memoryFallbackStore = {};
+
 function safeGet(key, fallback) {
   try {
-    if (typeof localStorage === "undefined") return fallback;
+    if (typeof localStorage === "undefined") {
+      return memoryFallbackStore[key] !== undefined ? memoryFallbackStore[key] : fallback;
+    }
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw);
@@ -105,7 +109,10 @@ function safeGet(key, fallback) {
 
 function safeSet(key, value) {
   try {
-    if (typeof localStorage === "undefined") return;
+    if (typeof localStorage === "undefined") {
+      memoryFallbackStore[key] = value;
+      return;
+    }
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
     console.error(`[StorageService] Failed to write ${key}:`, err);
@@ -173,7 +180,7 @@ export const storageService = {
 
     // 3. Initialize default partition for user-adarsh if not present
     const adarshKey = `at_saas_u_${DEFAULT_USER.id}_profile`;
-    if (!localStorage.getItem(adarshKey)) {
+    if (!safeGet(adarshKey, null)) {
       this.initUserPartition(DEFAULT_USER.id, {
         profile: safeGet("at_saas_profile", SEED_PROFILE),
         semesters: safeGet("at_saas_semesters", SEED_SEMESTERS),
