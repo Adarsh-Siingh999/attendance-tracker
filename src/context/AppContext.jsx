@@ -330,11 +330,15 @@ export function AppProvider({ children }) {
       const classes = getClassesForDate(date, { calendar, timetable: timetableData, ignoreSemesterRange: true });
       snapshot = classes[Number(classIndex)] || null;
     }
-    return storageService.setAttendanceStatus(activeSemesterId, date, classIndex, status, snapshot);
+    const updated = storageService.setAttendanceStatus(activeSemesterId, date, classIndex, status, snapshot);
+    setAttendanceRecords({ ...updated });
+    return updated;
   };
 
   const clearDateAttendance = (date) => {
-    return storageService.clearDateAttendance(activeSemesterId, date);
+    storageService.clearDateAttendance(activeSemesterId, date);
+    const updated = storageService.getAttendanceRecords(activeSemesterId);
+    setAttendanceRecords({ ...updated });
   };
 
   const saveSubject = (subjectData) => {
