@@ -1,12 +1,6 @@
 import { academicCalendar as defaultCalendar } from "../data/academicCalendar.js";
 import { semesterTimetable as defaultTimetable, timetableVersions } from "../data/timetableData.js";
 
-const NON_INSTRUCTIONAL_STORAGE_KEY =
-  "attendanceTrackerNonInstructionalDays";
-
-const NON_INSTRUCTIONAL_UPDATED_EVENT =
-  "nonInstructionalDaysUpdated";
-
 export function parseDate(dateString) {
   if (!dateString) return new Date();
   const [year, month, day] = dateString.split("-").map(Number);
@@ -72,9 +66,28 @@ export function isSemesterActive(dateString, calendar = null) {
   return true;
 }
 
+/**
+ * Resolves the timetable for a given date, supporting both versioned
+ * timetables ({ current, versions: [...] }) and flat timetables.
+ */
 export function getTimetableForDate(dateString, customTimetable = null) {
-  if (customTimetable && Object.keys(customTimetable).length > 0) {
-    return customTimetable;
+  if (customTimetable) {
+    // If versioned timetable structure
+    if (customTimetable.versions && Array.isArray(customTimetable.versions)) {
+      const matching = customTimetable.versions
+        .filter((v) => !v.effectiveFrom || dateString >= v.effectiveFrom)
+        .filter((v) => !v.effectiveTo || dateString <= v.effectiveTo)
+        .sort((a, b) => (b.effectiveFrom || "").localeCompare(a.effectiveFrom || ""));
+
+      if (matching.length > 0) {
+        return matching[0].timetable;
+      }
+      return customTimetable.current || {};
+    }
+
+    if (Object.keys(customTimetable).length > 0) {
+      return customTimetable;
+    }
   }
 
   const versions = (timetableVersions || [])
@@ -95,68 +108,17 @@ export function getTimetableForDate(dateString, customTimetable = null) {
   return defaultTimetable;
 }
 
-export function loadNonInstructionalDays() {
-  try {
-    const stored = localStorage.getItem(
-      NON_INSTRUCTIONAL_STORAGE_KEY
-    );
-
-    if (!stored) {
-      return [];
-    }
-
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export function isNonInstructionalDay(dateString, nonInstructionalList = null) {
-  const activeList = nonInstructionalList || loadNonInstructionalDays();
+export function isNonInstructionalDay(dateString, nonInstructionalDays = null) {
+  const activeList = nonInstructionalDays || [];
   return activeList.includes(dateString);
 }
 
-export function setNonInstructionalDay(dateString, value) {
-  try {
-    const current = loadNonInstructionalDays();
-    let updated;
-
-    if (value) {
-      updated = current.includes(dateString)
-        ? current
-        : [...current, dateString];
-    } else {
-      updated = current.filter(
-        (date) => date !== dateString
-      );
-    }
-
-    localStorage.setItem(
-      NON_INSTRUCTIONAL_STORAGE_KEY,
-      JSON.stringify(updated)
-    );
-
-    window.dispatchEvent(
-      new CustomEvent(
-        NON_INSTRUCTIONAL_UPDATED_EVENT,
-        {
-          detail: updated,
-        }
-      )
-    );
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
 /**
- * Resolves the classes for a given date considering holidays, exams, weekends,
- * non-instructional marks, and the active timetable schedule.
+ * Resolves scheduled classes for a given date.
  */
 export function getClassesForDate(dateString, options = {}) {
   const {
-    calendar = defaultCalendar,
+    calendar = null,
     timetable = null,
     ignoreSemesterRange = false,
   } = options;
@@ -165,16 +127,12 @@ export function getClassesForDate(dateString, options = {}) {
     return [];
   }
 
-  const nonInst = calendar?.nonInstructionalDays || loadNonInstructionalDays();
-  if (isNonInstructionalDay(dateString, nonInst)) {
+  const holiday = getHoliday(dateString, calendar?.holidays);
+  if (holiday) {
     return [];
   }
 
-  if (isWeekend(dateString, calendar?.weekends)) {
-    return [];
-  }
-
-  if (isHoliday(dateString, calendar?.holidays)) {
+  if (isNonInstructionalDay(dateString, calendar?.nonInstructionalDays)) {
     return [];
   }
 
@@ -183,25 +141,87 @@ export function getClassesForDate(dateString, options = {}) {
     return [];
   }
 
+  if (isWeekend(dateString, calendar?.weekends)) {
+    return [];
+  }
+
   const activeTimetable = getTimetableForDate(dateString, timetable);
   const dayOfWeek = getDayOfWeek(dateString);
 
-  return activeTimetable[dayOfWeek] || [];
+  return (activeTimetable && activeTimetable[dayOfWeek]) ? [...activeTimetable[dayOfWeek]] : [];
 }
 
-export function isInstructionalDay(dateString, options = {}) {
-  return getClassesForDate(dateString, options).length > 0;
-}
+/**
+ * AI Semester Schedule Generator:
+ * Takes a 1-week weekly timetable and repeats it across every instructional week
+ * of the full semester calendar, skipping holidays, weekends, non-instructional days,
+ * and accounting for exam periods.
+ */
+export function generateSemesterScheduleFromTimetable({
+  startDate,
+  endDate,
+  weekends = [0, 6],
+  holidays = [],
+  examinations = {},
+  nonInstructionalDays = [],
+  weeklyTimetable = {},
+}) {
+  if (!startDate || !endDate || startDate > endDate) {
+    return { totalDays: 0, instructionalDays: 0, totalClasses: 0, classList: [], subjectBreakdown: {} };
+  }
 
-export function getDateRange(startDate, endDate) {
-  const dates = [];
-  let current = parseDate(startDate);
-  const end = parseDate(endDate);
+  const calendarConfig = {
+    startDate,
+    endDate,
+    weekends,
+    holidays,
+    examinations,
+    nonInstructionalDays,
+  };
+
+  const classList = [];
+  const subjectBreakdown = {};
+  let totalDays = 0;
+  let instructionalDays = 0;
+
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
 
   while (current <= end) {
-    dates.push(formatDate(current));
+    totalDays++;
+    const dateStr = formatDate(current);
+    const dayClasses = getClassesForDate(dateStr, {
+      calendar: calendarConfig,
+      timetable: weeklyTimetable,
+    });
+
+    if (dayClasses.length > 0) {
+      instructionalDays++;
+      for (const cls of dayClasses) {
+        const item = { date: dateStr, ...cls };
+        classList.push(item);
+        const codeKey = cls.code || cls.subject;
+        subjectBreakdown[codeKey] = (subjectBreakdown[codeKey] || 0) + 1;
+      }
+    }
+
     current.setDate(current.getDate() + 1);
   }
 
-  return dates;
+  return {
+    totalDays,
+    instructionalDays,
+    totalClasses: classList.length,
+    classList,
+    subjectBreakdown,
+  };
+}
+
+export function formatAcademicDate(dateString) {
+  const date = parseDate(dateString);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

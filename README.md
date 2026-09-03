@@ -4,9 +4,9 @@
 [![Vite](https://img.shields.io/badge/Vite-8.2.2-purple.svg)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Ready-emerald.svg)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-19%2F19%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
+[![Tests](https://img.shields.io/badge/Tests-25%2F25%20Passing-success.svg)](src/utils/testAttendanceCalculations.js)
 
-**AttendanceFlow SaaS** is a modern, responsive, multi-user attendance tracking and forecasting platform designed for college students and institutions. It transforms attendance tracking from a passive spreadsheet chore into an active, predictive academic assistant.
+**AttendanceFlow SaaS** is a modern, responsive, multi-user attendance tracking and forecasting platform designed specifically for college students and institutions (with **Galgotias University** presets). It transforms attendance tracking from a passive chore into an active, predictive academic copilot.
 
 Every student gets their own isolated profile, semesters, custom subjects, weekly timetables, academic calendars, daily attendance logs, and an intelligent **"Can I Skip?" consequence simulator**.
 
@@ -14,42 +14,59 @@ Every student gets their own isolated profile, semesters, custom subjects, weekl
 
 ## ✨ Features at a Glance
 
-### 👥 1. Multi-Tenant Architecture & Data Isolation
-- Completely isolated data per user and per semester (`User → Profile → Semesters → [Subjects, Timetable, Attendance, Calendar]`).
-- Pluggable storage architecture: runs **100% locally out-of-the-box** with full seed data preservation, and connects seamlessly to **Supabase Cloud (PostgreSQL with Row-Level Security)** for cross-device synchronization.
+### 👥 1. Multi-User Authentication & Account Switcher
+- **Independent Student Profiles**: Anyone can sign up, log in, or switch profiles on the same device.
+- **Complete Data Partitioning**: Each student's attendance records, courses, timetables, and calendars are strictly isolated under their own user account (`user-adarsh`, `user-xxx`).
+- **One-Click Switcher**: Easily switch between student profiles from the header or sidebar without re-entering credentials.
+- **Starter Templates**:
+  - *Galgotias University — Semester V (Autumn)*
+  - *Galgotias University — Semester VI (Spring)*
+  - *Clean Slate (Custom university/courses)*
 
-### 🎓 2. Semester Lifecycle Management
-- Transition between academic terms (e.g. **Semester V → Semester VI**) without overwriting historical records.
-- Archive completed semesters, mark the active semester, or clone course lists into fresh semesters with zero attendance baseline.
+### 📖 2. Interactive New User Onboarding Guide
+- Built-in multi-step walkthrough tailored for university attendance rules:
+  - **75% Mandatory Target**: Eligibility threshold required to appear for End-Term Examinations (ETE).
+  - **65% Debarment Boundary**: Critical warning line to prevent admit card withholding.
+  - **Component Breakdown**: How PP (Programming/Practical), PR (Practical), and Lectures are aggregated.
+  - **Timetable AI Mapping & Consequence Simulator**: How to safely use the platform without jeopardizing standing.
 
-### 📚 3. Dynamic Subject Directory & Custom Components
+### 🛡️ 3. Immutable Past Attendance & Timetable Versioning
+- **Edit Timetables Without Affecting Past History**:
+  - Class metadata (`subject`, `code`, `type`, `status`) is snapshotted upon marking attendance.
+  - Updating or removing a class from the weekly timetable only applies from today onward.
+  - Historical records, streaks, and previous percentages remain **100% immutable and accurate**.
+  - Supports schedule versioning with effective date ranges.
+
+### 🚀 4. Galgotias Semester VI Setup Wizard with 1-Week Timetable AI Mapping
+- **1-Week Input → Full-Semester Schedule**:
+  - Simply enter your **1-week weekly timetable** (Monday to Saturday) once.
+  - The AI projection engine repeats the weekly timetable across all 18 instructional weeks of the academic calendar (`2027-01-18` to `2027-05-28`).
+  - Automatically accounts for official holidays (Republic Day, Maha Shivratri, Holi, Ambedkar Jayanti) and examination study leaves (MTE, ETE), while including instructional tests (IA2, Practicals).
+  - Instantly computes projected conducted classes (~240+ periods) so forecasting and skip simulation work on Day 1!
+
+### 📚 5. Dynamic Subject Directory & Custom Components
 - Add, edit, and delete courses with custom course codes, credits, and color tags.
-- Flexible class-type component configurator: supports **Lecture**, **Lab**, **Tutorial**, **Practical**, or specialized university components like **PP** (Programming/Practical) and **PR** (Practical) with individual attended and conducted counts.
+- Flexible component configurator: supports **Lecture**, **Lab**, **Tutorial**, **Practical**, or university components like **PP** and **PR** with individual attended and conducted counts.
 
-### ⏰ 4. Interactive Weekly Timetable Builder
-- Day-by-day weekly schedule editor (Monday through Sunday).
-- Add class periods with start/end time pickers, course selectors, room/venue tags, and class types.
-- Directly powers daily attendance checks, future projections, and absence consequence simulations.
-
-### 🗓️ 5. Academic Calendar & Daily Attendance Logger
-- Interactive monthly calendar with intelligent visual badges:
+### 🗓️ 6. Academic Calendar & Daily Attendance Logger
+- Interactive monthly calendar with visual badges:
   - **Class Days**: scheduled periods for that day.
-  - **Holidays**: official university holidays.
-  - **Examinations**: distinguishes between instructional exams (IA tests/Practicals) and study leaves (MTE/ETE).
-  - **Weekends**: configurable non-working days (e.g., Sunday + Monday or Saturday + Sunday).
-  - **Non-Instructional Days**: toggle working days as non-instructional if university cancels classes.
-- Date inspector panel with 1-tap **Present ✓** and **Absent ✗** marking for scheduled periods.
+  - **Holidays**: university holidays.
+  - **Examinations**: distinguishes between instructional tests and study leaves.
+  - **Weekends**: configurable non-working days.
+  - **Non-Instructional Days**: cancel classes for specific days if university is closed.
+- Date inspector panel with 1-tap **Present ✓** and **Absent ✗** marking.
 
-### 💤 6. "Can I Skip?" / "Can I Sleep?" Simulator
+### 💤 7. "Can I Skip?" Absence Consequence Simulator
 - Dedicated absence consequence engine that answers: *"Can I skip tomorrow or this specific class?"*
 - Select a date or specific periods to simulate skipping.
 - Instant high-contrast verdict:
-  - 🟢 **SAFE TO SKIP**: All courses remain $\ge$ your configured eligibility threshold.
+  - 🟢 **SAFE TO SKIP**: All courses remain $\ge$ your eligibility threshold.
   - 🟡 **PROCEED WITH CAUTION**: One or more courses drop below the required threshold.
   - 🔴 **DO NOT SKIP**: Attendance drops into the critical shortage boundary ($< 65\%$).
-- Comprehensive impact table showing exact drop deltas (e.g. $75.0\% \rightarrow 71.4\%$, $-3.6\%$) and flagging vulnerable courses.
+- Comprehensive impact table showing exact drop deltas (e.g. $75.0\% \rightarrow 71.4\%$, $-3.6\%$).
 
-### 🔮 7. Attendance Forecasting & Mathematical Recovery Roadmap
+### 🔮 8. Attendance Forecasting & Mathematical Recovery Roadmap
 - Course-by-course and overall projections based on remaining timetable classes in the semester.
 - Calculates:
   - **Best Achievable Attendance**: maximum percentage if all remaining classes are attended.
@@ -57,15 +74,14 @@ Every student gets their own isolated profile, semesters, custom subjects, weekl
   - **Maximum Safe Absences**: number of classes you can miss while maintaining eligibility.
   - **Recovery Feasibility**: mathematically evaluates whether recovery is possible given remaining schedule.
 
-### ✨ 8. AI Academic Calendar Importer
+### ✨ 9. AI Academic Calendar Importer
 - Upload official university calendar notices (PDF or Image).
 - Multimodal OCR/AI parsing extracts semester boundaries, holidays, and exam timeframes.
-- **Human-in-the-loop review table**: inspect, edit titles or dates, toggle "Counts as class", and confirm before applying to your live calendar.
+- **Human-in-the-loop review table**: inspect, edit titles or dates, toggle "Counts as class", and confirm before applying.
 
-### 🔗 9. Public Shareable Profiles & Privacy Controls
-- Generate a read-only vanity link (`/u/:publicSlug`) to share verified attendance with parents, advisors, or mentors.
-- Granular privacy toggles: choose to show/hide overall attendance, subject names, course codes, timetable, and institution.
-- Integrated live visitor preview container.
+### 🔗 10. Public Shareable Profiles & Privacy Controls
+- Generate a read-only vanity link (`/u/:publicSlug`) to share verified attendance with parents or advisors.
+- Granular privacy toggles: show/hide overall attendance, subject names, course codes, timetable, and institution.
 
 ---
 
@@ -93,10 +109,10 @@ $$\left( \frac{A + (R - X)}{C + R} \right) \times 100 \ge T$$
 |---|---|---|
 | **Frontend** | React 19 + Vite 8 | Ultra-fast build, optimized bundle size, modern JSX transform |
 | **Styling** | Custom SaaS CSS | Plus Jakarta Sans typography, responsive desktop sidebar + mobile bottom nav |
-| **State & Data** | React Context + Repository Layer | Centralized reactive store with event bus and optimistic updates |
-| **Persistence** | LocalStorage + Supabase Cloud | Resilient offline mode with PostgreSQL cloud sync |
+| **State & Auth** | React Context + Multi-Tenant Store | Namespaced user storage, event bus, and optimistic updates |
+| **Persistence** | LocalStorage + Supabase Cloud | Resilient offline mode with PostgreSQL cloud sync & RLS |
 | **Icons** | Custom Inline SVG Icons | Zero-dependency, lightweight, high-performance icons |
-| **Testing** | Automated Node.js Test Suite | 19 unit tests covering all mathematical formulas and boundary cases |
+| **Testing** | Automated Node.js Test Suite | 25 unit tests covering calculations, versioning, and AI schedule mapping |
 
 ---
 
@@ -114,15 +130,19 @@ attendance-tracker/
     ├── App.jsx                # SaaS shell (Sidebar, Header, BottomNav, Page Router)
     ├── index.css              # SaaS design system & responsive stylesheet
     ├── components/
+    │   ├── auth/              # Authentication & user switching
+    │   │   └── AuthModal.jsx  # Login, Register, & Profile Switcher dialog
     │   ├── common/            # Reusable UI primitives
     │   │   ├── Badge.jsx      # Semantic status badges
     │   │   ├── Button.jsx     # Button variants (primary, secondary, outline, ghost)
     │   │   ├── Modal.jsx      # Accessible dialog with backdrop blur & ESC dismiss
     │   │   ├── EmptyState.jsx # Actionable empty state placeholders
-    │   │   └── Icons.jsx      # Zero-dependency inline SVG icon library
+    │   │   ├── Icons.jsx      # Zero-dependency inline SVG icon library
+    │   │   ├── UserGuideModal.jsx      # Galgotias student onboarding guide
+    │   │   └── SemesterWizardModal.jsx # Semester VI 1-week timetable mapper
     │   └── layout/            # Navigation layout
-    │       ├── Sidebar.jsx    # Desktop collapsible sidebar with semester switcher
-    │       ├── Header.jsx     # Top bar with status pill & quick action buttons
+    │       ├── Sidebar.jsx    # Desktop collapsible sidebar with user profile widget
+    │       ├── Header.jsx     # Top bar with status pill & user switcher button
     │       └── BottomNav.jsx  # Mobile thumb navigation bar
     ├── context/
     │   └── AppContext.jsx     # Centralized reactive SaaS state provider
@@ -135,7 +155,7 @@ attendance-tracker/
     ├── pages/
     │   ├── DashboardPage.jsx      # Executive dashboard & today's schedule
     │   ├── SubjectsPage.jsx       # Course directory & component manager
-    │   ├── TimetablePage.jsx      # Interactive weekly schedule builder
+    │   ├── TimetablePage.jsx      # Interactive weekly schedule builder with versioning
     │   ├── CalendarPage.jsx       # Academic calendar & date-wise attendance logger
     │   ├── SkipSimulatorPage.jsx  # "Can I Skip?" absence impact engine
     │   ├── ForecastPage.jsx       # Recovery projections & required classes table
@@ -143,15 +163,15 @@ attendance-tracker/
     │   ├── PublicProfilePage.jsx  # Public shareable link & privacy controls
     │   └── SettingsPage.jsx       # Semester manager, threshold rules, & data export
     ├── services/
-    │   ├── storageService.js  # Multi-tenant repository layer & migration engine
+    │   ├── storageService.js  # Multi-user repository layer, auth, & timetable versioning
     │   └── supabaseClient.js  # Cloud database & auth connector
     └── utils/
         ├── attendanceCalculations.js     # Pure math calculation engine
         ├── skipSimulator.js              # Absence simulation engine
-        ├── academicCalendarUtils.js      # Date range, holiday, exam resolution
+        ├── academicCalendarUtils.js      # Timetable versioning, calendar & AI schedule mapper
         ├── timetableUtils.js             # Timetable schedule extraction
         ├── futureAttendance.js           # Upcoming class projection helpers
-        └── testAttendanceCalculations.js # Automated test runner (19/19 passing)
+        └── testAttendanceCalculations.js # Automated test runner (25/25 passing)
 ```
 
 ---
@@ -173,7 +193,7 @@ npm install
 ```bash
 npm run dev
 ```
-Open your browser at `http://localhost:5173`. The application runs immediately in **full-featured mode** with your Semester V data preserved!
+Open your browser at `http://localhost:5173`. The application runs immediately in **full-featured mode** with Galgotias Semester V data preserved!
 
 ### 4. Build for production
 ```bash
@@ -210,6 +230,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-public-key
 
 **Adarsh Singh**  
 B.Tech Computer Science & Engineering (AIML)  
+Galgotias University  
 GitHub: [@Adarsh-Siingh999](https://github.com/Adarsh-Siingh999)
 
 ---

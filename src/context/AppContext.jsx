@@ -17,27 +17,31 @@ import {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  // Navigation
+  // Navigation & User
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [users, setUsers] = useState(() => storageService.getUsers());
+  const [currentUser, setCurrentUser] = useState(() => storageService.getCurrentUser());
 
-  // Core Storage Data
+  // Core Storage Data for Current User
   const [profile, setProfile] = useState(() => storageService.getProfile());
   const [semesters, setSemesters] = useState(() => storageService.getSemesters());
   const [activeSemesterId, setActiveSemesterId] = useState(() => storageService.getActiveSemesterId());
   const [subjectsRaw, setSubjectsRaw] = useState(() => storageService.getSubjects(storageService.getActiveSemesterId()));
-  const [timetable, setTimetable] = useState(() => storageService.getTimetable(storageService.getActiveSemesterId()));
+  const [timetableData, setTimetableData] = useState(() => storageService.getTimetableData(storageService.getActiveSemesterId()));
   const [calendar, setCalendar] = useState(() => storageService.getCalendar(storageService.getActiveSemesterId()));
   const [attendanceRecords, setAttendanceRecords] = useState(() => storageService.getAttendanceRecords(storageService.getActiveSemesterId()));
   const [publicSettings, setPublicSettings] = useState(() => storageService.getPublicSettings());
 
-  // Reload all state when storage dispatches data updates
+  // Reload all state when storage dispatches data updates or user changes
   const refreshState = () => {
     const activeId = storageService.getActiveSemesterId();
+    setUsers(storageService.getUsers());
+    setCurrentUser(storageService.getCurrentUser());
     setProfile(storageService.getProfile());
     setSemesters(storageService.getSemesters());
     setActiveSemesterId(activeId);
     setSubjectsRaw(storageService.getSubjects(activeId));
-    setTimetable(storageService.getTimetable(activeId));
+    setTimetableData(storageService.getTimetableData(activeId));
     setCalendar(storageService.getCalendar(activeId));
     setAttendanceRecords(storageService.getAttendanceRecords(activeId));
     setPublicSettings(storageService.getPublicSettings());
@@ -48,11 +52,13 @@ export function AppProvider({ children }) {
     window.addEventListener(STORAGE_EVENTS.DATA_REFRESHED, handleUpdate);
     window.addEventListener(STORAGE_EVENTS.ATTENDANCE_UPDATED, handleUpdate);
     window.addEventListener(STORAGE_EVENTS.SEMESTER_CHANGED, handleUpdate);
+    window.addEventListener(STORAGE_EVENTS.USER_CHANGED, handleUpdate);
 
     return () => {
       window.removeEventListener(STORAGE_EVENTS.DATA_REFRESHED, handleUpdate);
       window.removeEventListener(STORAGE_EVENTS.ATTENDANCE_UPDATED, handleUpdate);
       window.removeEventListener(STORAGE_EVENTS.SEMESTER_CHANGED, handleUpdate);
+      window.removeEventListener(STORAGE_EVENTS.USER_CHANGED, handleUpdate);
     };
   }, []);
 
@@ -61,9 +67,26 @@ export function AppProvider({ children }) {
     storageService.setActiveSemesterId(id);
     setActiveSemesterId(id);
     setSubjectsRaw(storageService.getSubjects(id));
-    setTimetable(storageService.getTimetable(id));
+    setTimetableData(storageService.getTimetableData(id));
     setCalendar(storageService.getCalendar(id));
     setAttendanceRecords(storageService.getAttendanceRecords(id));
+  };
+
+  // User auth actions
+  const handleLogin = (userId) => {
+    storageService.login(userId);
+    refreshState();
+  };
+
+  const handleCreateUser = (userData) => {
+    const newUser = storageService.createUser(userData);
+    refreshState();
+    return newUser;
+  };
+
+  const handleLogout = () => {
+    storageService.logout();
+    refreshState();
   };
 
   const activeSemester = useMemo(() => {
@@ -79,38 +102,68 @@ export function AppProvider({ children }) {
   const threshold = activeSemester.eligibilityThreshold ?? 75;
   const criticalThreshold = activeSemester.criticalThreshold ?? 65;
 
+  // Timetable resolving helper
+  const timetable = useMemo(() => {
+    if (timetableData && timetableData.current) {
+      return timetableData.current;
+    }
+    return timetableData || {};
+  }, [timetableData]);
+
+  const timetableVersions = useMemo(() => {
+    if (timetableData && timetableData.versions) {
+      return timetableData.versions;
+    }
+    return [];
+  }, [timetableData]);
+
   // Compute live recorded attendance totals from active calendar + active records
+  // Prioritizes immutable class snapshots stored directly in attendance records
   const recordedAttendance = useMemo(() => {
     const subjectRecords = {};
     let present = 0;
     let absent = 0;
 
     for (const [date, records] of Object.entries(attendanceRecords || {})) {
-      const classes = getClassesForDate(date, { calendar, timetable });
-      if (!classes || classes.length === 0) continue;
+      if (!records || typeof records !== "object") continue;
 
-      for (const [classIndex, status] of Object.entries(records || {})) {
-        const classItem = classes[Number(classIndex)];
-        if (!classItem) continue;
+      const classes = getClassesForDate(date, { calendar, timetable: timetableData });
 
-        const code = classItem.code || classItem.subject;
-        if (!subjectRecords[code]) {
-          subjectRecords[code] = { present: 0, absent: 0 };
+      for (const [classIndex, rawEntry] of Object.entries(records)) {
+        let status;
+        let codeKey;
+
+        if (typeof rawEntry === "object" && rawEntry !== null) {
+          // Snapshot present!
+          status = rawEntry.status;
+          codeKey = rawEntry.code || rawEntry.subject;
+        } else {
+          // Legacy string ("present" / "absent")
+          status = rawEntry;
+          const classItem = classes[Number(classIndex)];
+          if (classItem) {
+            codeKey = classItem.code || classItem.subject;
+          }
+        }
+
+        if (!codeKey || !status) continue;
+
+        if (!subjectRecords[codeKey]) {
+          subjectRecords[codeKey] = { present: 0, absent: 0 };
         }
 
         if (status === "present") {
           present++;
-          subjectRecords[code].present++;
-        }
-        if (status === "absent") {
+          subjectRecords[codeKey].present++;
+        } else if (status === "absent") {
           absent++;
-          subjectRecords[code].absent++;
+          subjectRecords[codeKey].absent++;
         }
       }
     }
 
     return { present, absent, subjectRecords };
-  }, [attendanceRecords, calendar, timetable]);
+  }, [attendanceRecords, calendar, timetableData]);
 
   // Aggregate subjects with live attendance
   const subjects = useMemo(() => {
@@ -164,7 +217,7 @@ export function AppProvider({ children }) {
 
     while (current <= end) {
       const dateStr = formatDate(current);
-      const dayClasses = getClassesForDate(dateStr, { calendar, timetable });
+      const dayClasses = getClassesForDate(dateStr, { calendar, timetable: timetableData });
       for (const item of dayClasses) {
         list.push({ date: dateStr, ...item });
       }
@@ -172,7 +225,7 @@ export function AppProvider({ children }) {
     }
 
     return list;
-  }, [calendar, timetable]);
+  }, [calendar, timetableData]);
 
   const classesRemaining = futureClasses.length;
 
@@ -223,9 +276,14 @@ export function AppProvider({ children }) {
     });
   }, [subjects, futureClasses, threshold, criticalThreshold]);
 
-  // Handler functions exposed to UI
-  const markAttendance = (date, classIndex, status) => {
-    return storageService.setAttendanceStatus(activeSemesterId, date, classIndex, status);
+  // Attendance marking with snapshotting
+  const markAttendance = (date, classIndex, status, customClassSnapshot = null) => {
+    let snapshot = customClassSnapshot;
+    if (!snapshot) {
+      const classes = getClassesForDate(date, { calendar, timetable: timetableData, ignoreSemesterRange: true });
+      snapshot = classes[Number(classIndex)] || null;
+    }
+    return storageService.setAttendanceStatus(activeSemesterId, date, classIndex, status, snapshot);
   };
 
   const clearDateAttendance = (date) => {
@@ -252,8 +310,8 @@ export function AppProvider({ children }) {
     return storageService.updateProfile(profileData);
   };
 
-  const saveTimetable = (newTimetable) => {
-    return storageService.saveTimetable(activeSemesterId, newTimetable);
+  const saveTimetable = (newTimetable, options = {}) => {
+    return storageService.saveTimetable(activeSemesterId, newTimetable, options);
   };
 
   const saveCalendar = (newCalendar) => {
@@ -265,10 +323,18 @@ export function AppProvider({ children }) {
   };
 
   const value = {
+    // Navigation & Auth
     activeTab,
     setActiveTab,
+    users,
+    currentUser,
+    loginUser: handleLogin,
+    logoutUser: handleLogout,
+    createUser: handleCreateUser,
     profile,
     updateProfile,
+
+    // Semesters & Data
     semesters,
     activeSemester,
     activeSemesterId,
@@ -279,12 +345,15 @@ export function AppProvider({ children }) {
     saveSubject,
     deleteSubject,
     timetable,
+    timetableVersions,
     saveTimetable,
     calendar,
     saveCalendar,
     attendanceRecords,
     markAttendance,
     clearDateAttendance,
+
+    // Attendance Metrics & Projections
     overall,
     futureClasses,
     overallForecast,

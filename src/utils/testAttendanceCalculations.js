@@ -10,6 +10,10 @@ import {
 } from "./attendanceCalculations.js";
 
 import { simulateSkipImpact } from "./skipSimulator.js";
+import {
+  getTimetableForDate,
+  generateSemesterScheduleFromTimetable,
+} from "./academicCalendarUtils.js";
 
 console.log("=== RUNNING ATTENDANCE ENGINE TEST SUITE ===");
 
@@ -75,6 +79,50 @@ const simResult = simulateSkipImpact({
 assert(simResult.verdict === "CAUTION", "Skipping class that drops subject below 75% yields CAUTION");
 assert(simResult.affectedSubjects.length === 1, "Correctly identifies the single affected subject");
 assert(simResult.affectedSubjects[0].crossedThreshold === true, "Flags that subject crossed threshold");
+
+// 7. Timetable Versioning & Immutability Tests
+const versionedTimetable = {
+  current: {
+    1: [{ subject: "AI", code: "CS602" }],
+  },
+  versions: [
+    {
+      id: "v1",
+      effectiveFrom: "2026-08-01",
+      effectiveTo: "2026-09-10",
+      timetable: { 1: [{ subject: "Math", code: "MA101" }] },
+    },
+    {
+      id: "v2",
+      effectiveFrom: "2026-09-11",
+      effectiveTo: null,
+      timetable: { 1: [{ subject: "AI", code: "CS602" }] },
+    },
+  ],
+};
+
+const pastClasses = getTimetableForDate("2026-09-05", versionedTimetable);
+assert(pastClasses[1][0].subject === "Math", "Past date resolves historical timetable version (Math)");
+
+const futureClasses = getTimetableForDate("2026-09-15", versionedTimetable);
+assert(futureClasses[1][0].subject === "AI", "Future date resolves updated timetable version (AI)");
+
+// 8. Full Semester Schedule AI Mapping
+const scheduleResult = generateSemesterScheduleFromTimetable({
+  startDate: "2027-01-18", // Monday
+  endDate: "2027-01-31",   // Sunday (14 days = 2 weeks)
+  weekends: [0, 6],        // Saturday & Sunday are weekends
+  holidays: [{ date: "2027-01-26", name: "Republic Day" }], // Tuesday holiday
+  weeklyTimetable: {
+    1: [{ subject: "Cloud", code: "CS601" }], // Mon
+    2: [{ subject: "DL", code: "AI602" }],    // Tue
+  },
+});
+
+assert(scheduleResult.totalDays === 14, "AI Schedule counts exact 14 days in two weeks");
+assert(scheduleResult.instructionalDays === 3, "AI Schedule counts exactly 3 instructional days (2 Mondays + 1 Tuesday, skipping 1 holiday Tuesday)");
+assert(scheduleResult.subjectBreakdown["CS601"] === 2, "AI Schedule maps 2 Cloud classes across 2 Mondays");
+assert(scheduleResult.subjectBreakdown["AI602"] === 1, "AI Schedule maps 1 DL class, accurately skipping Republic Day holiday");
 
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {

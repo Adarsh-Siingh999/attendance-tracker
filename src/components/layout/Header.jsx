@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { useApp } from "../../context/AppContext.jsx";
 import { IconSparkles } from "../common/Icons.jsx";
 import { Button } from "../common/Button.jsx";
+import { AuthModal } from "../auth/AuthModal.jsx";
+import { UserGuideModal } from "../common/UserGuideModal.jsx";
 
 export function Header() {
-  const { activeTab, setActiveTab, activeSemester, overall, threshold } = useApp();
+  const { activeTab, setActiveTab, activeSemester, overall, currentUser, threshold } = useApp();
+
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const titles = {
     dashboard: { title: "Dashboard", sub: "Live attendance overview & forecasting" },
@@ -21,41 +27,71 @@ export function Header() {
   const isEligible = overall.percentage >= threshold;
 
   return (
-    <header className="saas-header">
-      <div className="header-left">
-        <h1 className="header-title">{current.title}</h1>
-        <p className="header-subtitle">{current.sub}</p>
-      </div>
-
-      <div className="header-right">
-        <div className="header-status-pill">
-          <span className="status-dot-pulse" style={{ backgroundColor: isEligible ? "#16834b" : "#dc3545" }} />
-          <span className="status-label">{activeSemester.name}</span>
-          <span className="status-val">{overall.percentage.toFixed(1)}%</span>
+    <>
+      <header className="saas-header">
+        <div className="header-left">
+          <h1 className="header-title">{current.title}</h1>
+          <p className="header-subtitle">{current.sub}</p>
         </div>
 
-        {activeTab !== "skip" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveTab("skip")}
-            className="header-quick-action"
-          >
-            Can I Skip?
-          </Button>
-        )}
+        <div className="header-right">
+          {/* SEMESTER STANDING PILL */}
+          <div className="header-status-pill">
+            <span className="status-dot-pulse" style={{ backgroundColor: isEligible ? "#16834b" : "#dc3545" }} />
+            <span className="status-label">{activeSemester.name}</span>
+            <span className="status-val">{overall.percentage.toFixed(1)}%</span>
+          </div>
 
-        {activeTab !== "import" && (
+          {/* USER GUIDE BUTTON */}
           <Button
-            variant="primary"
+            variant="ghost"
             size="sm"
-            icon={<IconSparkles size={14} />}
-            onClick={() => setActiveTab("import")}
+            onClick={() => setIsGuideOpen(true)}
+            className="guide-quick-btn"
           >
-            Import Calendar
+            📖 Guide
           </Button>
-        )}
-      </div>
-    </header>
+
+          {/* QUICK "CAN I SKIP?" SHORTCUT */}
+          {activeTab !== "skip" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab("skip")}
+              className="header-quick-action"
+            >
+              Can I Skip?
+            </Button>
+          )}
+
+          {activeTab !== "import" && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<IconSparkles size={14} />}
+              onClick={() => setActiveTab("import")}
+            >
+              Import Calendar
+            </Button>
+          )}
+
+          {/* USER ACCOUNT SWITCH BUTTON */}
+          <button
+            type="button"
+            className="user-pill-btn"
+            onClick={() => setIsAuthOpen(true)}
+            title="Switch student profile or login"
+          >
+            <span className="user-pill-avatar">{currentUser?.avatarInitials || "AS"}</span>
+            <span className="user-pill-name">{currentUser?.name?.split(" ")[0] || "Student"}</span>
+            <span className="user-pill-switch-tag">Switch ▾</span>
+          </button>
+        </div>
+      </header>
+
+      {/* MODALS */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      <UserGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+    </>
   );
 }

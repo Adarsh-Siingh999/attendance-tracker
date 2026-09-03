@@ -3,8 +3,10 @@ import { useApp } from "../context/AppContext.jsx";
 import { Button } from "../components/common/Button.jsx";
 import { Badge } from "../components/common/Badge.jsx";
 import { Modal } from "../components/common/Modal.jsx";
-import { IconDownload, IconTrash, IconPlus, IconCheck } from "../components/common/Icons.jsx";
+import { IconDownload, IconTrash, IconPlus, IconCheck, IconSparkles } from "../components/common/Icons.jsx";
 import { storageService } from "../services/storageService.js";
+import { SemesterWizardModal } from "../components/common/SemesterWizardModal.jsx";
+import { AuthModal } from "../components/auth/AuthModal.jsx";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -18,7 +20,13 @@ export function SettingsPage() {
     setActiveSemesterId,
     saveSemester,
     deleteSemester,
+    currentUser,
   } = useApp();
+
+  // Modals
+  const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   // Profile Form
   const [fullName, setFullName] = useState(profile.fullName || "");
@@ -33,7 +41,6 @@ export function SettingsPage() {
   const [rulesSaved, setRulesSaved] = useState(false);
 
   // New Semester Modal
-  const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [semName, setSemName] = useState("");
   const [academicYear, setAcademicYear] = useState("2026-27");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
@@ -141,15 +148,27 @@ export function SettingsPage() {
         <div>
           <h2 className="section-heading">Platform Settings & Management</h2>
           <p className="section-desc">
-            Manage your student profile, configure academic semesters, adjust threshold rules, and export data.
+            Manage your student profile, switch user accounts, configure Galgotias semesters, and adjust threshold rules.
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setIsAuthOpen(true)}>
+          Switch User Account ({currentUser?.name || "Student"})
+        </Button>
       </div>
 
       <div className="settings-grid">
         {/* 1. PROFILE SETTINGS */}
         <div className="settings-card">
-          <h3 className="card-section-title">Student Profile</h3>
+          <div className="card-header-with-btn">
+            <div>
+              <h3 className="card-section-title">Student Profile</h3>
+              <p className="card-desc">Active User: <strong>{currentUser?.name}</strong></p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setIsAuthOpen(true)}>
+              Switch User ▾
+            </Button>
+          </div>
+
           <form onSubmit={handleSaveProfile} className="settings-form">
             <div className="form-group">
               <label className="form-label">Full Name</label>
@@ -167,7 +186,7 @@ export function SettingsPage() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="e.g. Stanford University or Galgotias"
+                placeholder="e.g. Galgotias University"
                 value={institution}
                 onChange={(e) => setInstitution(e.target.value)}
               />
@@ -213,7 +232,7 @@ export function SettingsPage() {
                   onChange={(e) => setEligibilityThreshold(e.target.value)}
                   required
                 />
-                <span className="form-help-text">Default: 75% for exam eligibility</span>
+                <span className="form-help-text">Galgotias Mandatory: 75% for ETE</span>
               </div>
 
               <div className="form-group">
@@ -227,7 +246,7 @@ export function SettingsPage() {
                   onChange={(e) => setCriticalThreshold(e.target.value)}
                   required
                 />
-                <span className="form-help-text">Default: 65% for debar warning</span>
+                <span className="form-help-text">Debar Warning Line: 65%</span>
               </div>
             </div>
 
@@ -256,18 +275,33 @@ export function SettingsPage() {
           </form>
         </div>
 
-        {/* 3. SEMESTER MANAGEMENT */}
+        {/* 3. SEMESTER MANAGEMENT & GALGOTIAS SEMESTER VI WIZARD */}
         <div className="settings-card full-width-card">
           <div className="card-header-with-btn">
             <div>
-              <h3 className="card-section-title">Academic Semesters</h3>
+              <h3 className="card-section-title">Academic Semesters (Galgotias University)</h3>
               <p className="card-desc">
-                Seamlessly move from Semester 5 to Semester 6 without losing historical attendance records.
+                Transition seamlessly from Semester V to Semester VI with 1-week timetable input and AI schedule repetition.
               </p>
             </div>
-            <Button variant="outline" size="sm" icon={<IconPlus size={14} />} onClick={() => setIsSemesterModalOpen(true)}>
-              New Semester
-            </Button>
+            <div className="header-action-btns">
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<IconSparkles size={14} />}
+                onClick={() => setIsWizardOpen(true)}
+              >
+                Launch Semester VI Wizard
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<IconPlus size={14} />}
+                onClick={() => setIsSemesterModalOpen(true)}
+              >
+                Custom Semester
+              </Button>
+            </div>
           </div>
 
           <div className="semesters-list-table">
@@ -327,11 +361,11 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* CREATE NEW SEMESTER MODAL */}
+      {/* CREATE NEW CUSTOM SEMESTER MODAL */}
       <Modal
         isOpen={isSemesterModalOpen}
         onClose={() => setIsSemesterModalOpen(false)}
-        title="Create New Semester"
+        title="Create New Custom Semester"
         maxWidth="500px"
       >
         <form onSubmit={handleCreateSemester} className="modal-form">
@@ -403,6 +437,12 @@ export function SettingsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* GALGOTIAS SEMESTER VI WIZARD MODAL */}
+      <SemesterWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
+
+      {/* AUTH / SWITCH USER MODAL */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
   );
 }

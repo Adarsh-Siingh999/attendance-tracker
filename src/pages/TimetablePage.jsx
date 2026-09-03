@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { Button } from "../components/common/Button.jsx";
 import { Modal } from "../components/common/Modal.jsx";
+import { Badge } from "../components/common/Badge.jsx";
 import { EmptyState } from "../components/common/EmptyState.jsx";
 import { IconPlus, IconTrash, IconTimetable } from "../components/common/Icons.jsx";
+import { formatDate } from "../utils/academicCalendarUtils.js";
 
 const DAYS = [
   { index: 1, name: "Monday" },
@@ -16,10 +18,13 @@ const DAYS = [
 ];
 
 export function TimetablePage() {
-  const { timetable, saveTimetable, subjects, calendar } = useApp();
+  const { timetable, timetableVersions, saveTimetable, subjects, calendar } = useApp();
   const [selectedDay, setSelectedDay] = useState(2); // Tuesday default
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClassIndex, setEditingClassIndex] = useState(null);
+
+  // Timetable Versioning toggle (protects past attendance history!)
+  const [protectPastHistory, setProtectPastHistory] = useState(true);
 
   // Form State
   const [subjectName, setSubjectName] = useState("");
@@ -95,17 +100,37 @@ export function TimetablePage() {
       [selectedDay]: updatedDayClasses,
     };
 
-    saveTimetable(updatedTimetable);
+    if (protectPastHistory) {
+      const todayStr = formatDate(new Date());
+      saveTimetable(updatedTimetable, {
+        applyFromDate: todayStr,
+        note: `Modified ${newClass.subject} on ${DAYS.find((d) => d.index === selectedDay)?.name}`,
+      });
+    } else {
+      saveTimetable(updatedTimetable);
+    }
+
     setIsModalOpen(false);
   };
 
   const handleDeleteClass = (index) => {
+    if (!window.confirm("Are you sure you want to remove this class period?")) return;
+
     const updatedDayClasses = currentDayClasses.filter((_, i) => i !== index);
     const updatedTimetable = {
       ...timetable,
       [selectedDay]: updatedDayClasses,
     };
-    saveTimetable(updatedTimetable);
+
+    if (protectPastHistory) {
+      const todayStr = formatDate(new Date());
+      saveTimetable(updatedTimetable, {
+        applyFromDate: todayStr,
+        note: `Removed period from ${DAYS.find((d) => d.index === selectedDay)?.name}`,
+      });
+    } else {
+      saveTimetable(updatedTimetable);
+    }
   };
 
   const isWeekendDay = calendar?.weekends?.includes(selectedDay);
@@ -116,12 +141,40 @@ export function TimetablePage() {
         <div>
           <h2 className="section-heading">Weekly Timetable Schedule</h2>
           <p className="section-desc">
-            Your timetable determines future class forecasts, daily attendance checks, and the "Can I Skip?" engine.
+            Your 1-week timetable repeats across the entire semester calendar, driving daily attendance and projections.
           </p>
         </div>
-        <Button variant="primary" icon={<IconPlus size={16} />} onClick={openAddModal}>
-          Add Class
-        </Button>
+        <div className="header-action-btns">
+          <Button variant="primary" icon={<IconPlus size={16} />} onClick={openAddModal}>
+            Add Class
+          </Button>
+        </div>
+      </div>
+
+      {/* TIMETABLE IMMUTABILITY & VERSIONING BANNER */}
+      <div className="timetable-versioning-card">
+        <div className="versioning-left">
+          <span className="versioning-badge">🛡️ IMMUTABLE HISTORY PROTECTION</span>
+          <h4>Edit Without Affecting Past Attendance</h4>
+          <p>
+            When enabled, changes to the weekly schedule only apply from today onward. Past marked classes keep their original recorded subjects and percentages.
+          </p>
+        </div>
+        <div className="versioning-right">
+          <label className="checkbox-pill active-pill">
+            <input
+              type="checkbox"
+              checked={protectPastHistory}
+              onChange={(e) => setProtectPastHistory(e.target.checked)}
+            />
+            <span>Protect Past Attendance (Version from Today)</span>
+          </label>
+          {timetableVersions.length > 0 && (
+            <span className="versions-count-tag">
+              {timetableVersions.length} schedule version(s) recorded
+            </span>
+          )}
+        </div>
       </div>
 
       {/* DAY SELECTOR PILLS */}
@@ -177,7 +230,7 @@ export function TimetablePage() {
                 <div className="class-info-col">
                   <div className="class-title-row">
                     <h4 className="class-subj-title">{cls.subject}</h4>
-                    <span className="class-type-badge">{cls.type}</span>
+                    <Badge variant="primary" size="sm" className="class-type-badge">{cls.type}</Badge>
                   </div>
                   <div className="class-meta-row">
                     {cls.code && <span className="meta-text">{cls.code}</span>}
