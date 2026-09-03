@@ -12,6 +12,7 @@ import {
 import { simulateSkipImpact } from "./skipSimulator.js";
 import {
   getTimetableForDate,
+  getClassesForDate,
   generateSemesterScheduleFromTimetable,
 } from "./academicCalendarUtils.js";
 import { storageService } from "../services/storageService.js";
@@ -160,6 +161,49 @@ const remProjection = generateSemesterScheduleFromTimetable({
   },
 });
 assert(remProjection.totalClasses === 6, "Calculates exact remaining classes across 2 weeks (3 classes/week * 2 = 6 classes)");
+
+// 12. Mid-Semester Timetable Version Switching (Month 1-2 vs Month 3+)
+const midSemTimetableData = {
+  current: {
+    2: [{ subject: "Deep Learning (Month 3+)" }],
+  },
+  versions: [
+    {
+      id: "v-first-2-months",
+      effectiveFrom: "2026-08-01",
+      effectiveTo: "2026-09-30",
+      timetable: {
+        2: [{ subject: "Engineering Math (First 2 Months)" }],
+      },
+    },
+    {
+      id: "v-month-3-onward",
+      effectiveFrom: "2026-10-01",
+      effectiveTo: null,
+      timetable: {
+        2: [{ subject: "Deep Learning (Month 3+)" }],
+      },
+    },
+  ],
+};
+
+const month2TuesdayClasses = getClassesForDate("2026-09-15", {
+  calendar: { weekends: [0, 1] },
+  timetable: midSemTimetableData,
+});
+assert(
+  month2TuesdayClasses[0]?.subject === "Engineering Math (First 2 Months)",
+  "Month 2 date resolves historical first 2 months timetable"
+);
+
+const month3TuesdayClasses = getClassesForDate("2026-10-06", {
+  calendar: { weekends: [0, 1] },
+  timetable: midSemTimetableData,
+});
+assert(
+  month3TuesdayClasses[0]?.subject === "Deep Learning (Month 3+)",
+  "Month 3 date resolves revised mid-semester timetable"
+);
 
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {

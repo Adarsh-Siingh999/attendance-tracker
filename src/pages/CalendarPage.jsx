@@ -306,7 +306,7 @@ export function CalendarPage() {
                               type="button"
                               className={`btn-att-pill present ${status === "present" ? "active" : ""}`}
                               onClick={() => markAttendance(selectedDate, idx, "present")}
-                              title={status === "present" ? "Marked Present (Click to unmark)" : "Mark Present"}
+                              title={status === "present" ? "Marked as Attended (Click to unmark)" : "Mark as Present"}
                             >
                               ✓
                             </button>
@@ -314,7 +314,7 @@ export function CalendarPage() {
                               type="button"
                               className={`btn-att-pill absent ${status === "absent" ? "active" : ""}`}
                               onClick={() => markAttendance(selectedDate, idx, "absent")}
-                              title={status === "absent" ? "Marked Absent (Click to unmark)" : "Mark Absent"}
+                              title={status === "absent" ? "Marked as Missed (Click to unmark)" : "Mark as Absent"}
                             >
                               ✗
                             </button>

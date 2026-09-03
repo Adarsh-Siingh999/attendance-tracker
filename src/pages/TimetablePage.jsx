@@ -6,6 +6,8 @@ import { Badge } from "../components/common/Badge.jsx";
 import { EmptyState } from "../components/common/EmptyState.jsx";
 import { IconPlus, IconTrash, IconTimetable } from "../components/common/Icons.jsx";
 import { formatDate } from "../utils/academicCalendarUtils.js";
+import { TimetableVersionsModal } from "../components/common/TimetableVersionsModal.jsx";
+import { MidSemesterSetupModal } from "../components/common/MidSemesterSetupModal.jsx";
 
 const DAYS = [
   { index: 1, name: "Monday" },
@@ -22,6 +24,10 @@ export function TimetablePage() {
   const [selectedDay, setSelectedDay] = useState(2); // Tuesday default
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClassIndex, setEditingClassIndex] = useState(null);
+
+  // Modals for mid-semester timetable versions and baseline setup
+  const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
+  const [isMidSemModalOpen, setIsMidSemModalOpen] = useState(false);
 
   // Timetable Versioning toggle (protects past attendance history!)
   const [protectPastHistory, setProtectPastHistory] = useState(true);
@@ -145,6 +151,12 @@ export function TimetablePage() {
           </p>
         </div>
         <div className="header-action-btns">
+          <Button variant="outline" size="sm" onClick={() => setIsVersionsModalOpen(true)}>
+            Schedule Versions ({timetableVersions.length > 0 ? timetableVersions.length : 1})
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setIsMidSemModalOpen(true)}>
+            Joined Mid-Semester?
+          </Button>
           <Button variant="primary" icon={<IconPlus size={16} />} onClick={openAddModal}>
             Add Class
           </Button>
@@ -364,6 +376,18 @@ export function TimetablePage() {
           </div>
         </form>
       </Modal>
+
+      {/* SCHEDULE VERSIONS MODAL */}
+      <TimetableVersionsModal
+        isOpen={isVersionsModalOpen}
+        onClose={() => setIsVersionsModalOpen(false)}
+      />
+
+      {/* MID-SEMESTER BASELINE OPENING SETUP MODAL */}
+      <MidSemesterSetupModal
+        isOpen={isMidSemModalOpen}
+        onClose={() => setIsMidSemModalOpen(false)}
+      />
     </div>
   );
 }

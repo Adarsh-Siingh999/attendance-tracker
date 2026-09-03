@@ -870,16 +870,17 @@ body {
   transform: scale(0.96);
 }
 
-/* MARKED PRESENT BUTTON (VIVID EMERALD ACTIVE) */
+/* MARKED PRESENT BUTTON (VIVID EMERALD ACTIVE - BIGGER & PROMINENT) */
 .btn-mark.mark-present.active {
   background: linear-gradient(135deg, #16a34a, #15803d) !important;
   color: #ffffff !important;
   border-color: #14532d !important;
   font-weight: 850 !important;
-  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-  outline: 2px solid rgba(34, 197, 94, 0.35);
-  outline-offset: 1px;
-  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  outline: 2px solid rgba(34, 197, 94, 0.4);
+  outline-offset: 1.5px;
+  transform: scale(1.10);
+  z-index: 2;
 }
 
 /* UNMARKED ABSENT BUTTON */
@@ -901,16 +902,23 @@ body {
   transform: scale(0.96);
 }
 
-/* MARKED ABSENT BUTTON (VIVID CRIMSON ACTIVE) */
+/* MARKED ABSENT BUTTON (VIVID CRIMSON ACTIVE - BIGGER & PROMINENT) */
 .btn-mark.mark-absent.active {
   background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
   color: #ffffff !important;
   border-color: #991b1b !important;
   font-weight: 850 !important;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-  outline: 2px solid rgba(239, 68, 68, 0.35);
-  outline-offset: 1px;
-  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  outline: 2px solid rgba(239, 68, 68, 0.4);
+  outline-offset: 1.5px;
+  transform: scale(1.10);
+  z-index: 2;
+}
+
+/* Sibling contrast when one button is marked */
+.class-actions-block:has(.btn-mark.active) .btn-mark:not(.active) {
+  opacity: 0.65;
+  transform: scale(0.94);
 }
 
 .day-notice-card {
@@ -1711,15 +1719,16 @@ body {
   transform: scale(0.94);
 }
 
-/* MARKED PILL PRESENT (VIVID EMERALD ACTIVE) */
+/* MARKED PILL PRESENT (VIVID EMERALD ACTIVE - BIGGER) */
 .btn-att-pill.present.active {
   background: linear-gradient(135deg, #16a34a, #15803d) !important;
   color: #ffffff !important;
   border-color: #14532d !important;
-  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.4) !important;
-  outline: 2px solid rgba(34, 197, 94, 0.35);
+  box-shadow: 0 5px 14px rgba(22, 163, 74, 0.45) !important;
+  outline: 2px solid rgba(34, 197, 94, 0.4);
   outline-offset: 1px;
-  transform: scale(1.08);
+  transform: scale(1.18);
+  z-index: 2;
 }
 
 /* UNMARKED PILL ABSENT */
@@ -1739,15 +1748,22 @@ body {
   transform: scale(0.94);
 }
 
-/* MARKED PILL ABSENT (VIVID CRIMSON ACTIVE) */
+/* MARKED PILL ABSENT (VIVID CRIMSON ACTIVE - BIGGER) */
 .btn-att-pill.absent.active {
   background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
   color: #ffffff !important;
   border-color: #991b1b !important;
-  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.4) !important;
-  outline: 2px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 5px 14px rgba(220, 38, 38, 0.45) !important;
+  outline: 2px solid rgba(239, 68, 68, 0.4);
   outline-offset: 1px;
-  transform: scale(1.08);
+  transform: scale(1.18);
+  z-index: 2;
+}
+
+/* Sibling contrast when one pill is marked */
+.item-attendance-btns:has(.btn-att-pill.active) .btn-att-pill:not(.active) {
+  opacity: 0.65;
+  transform: scale(0.92);
 }
 
 /* STATUS STATE PILL */
@@ -3403,4 +3419,163 @@ body {
     height: 36px;
     font-size: 16px;
   }
+}
+
+/* ==========================================================================
+   MID-SEMESTER BASELINE & TIMETABLE VERSIONS STYLES
+   ========================================================================== */
+
+.mid-sem-modal-content,
+.versions-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mid-sem-banner,
+.version-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--primary-soft);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.mid-sem-banner h4,
+.version-info-banner h4 {
+  color: var(--primary-dark);
+  font-size: 14px;
+  font-weight: 750;
+  margin: 0 0 4px;
+}
+
+.mid-sem-banner p,
+.version-info-banner p {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.opening-counts-table-box {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.opening-counts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.opening-counts-table th {
+  background: var(--bg);
+  padding: 10px 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: left;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.opening-counts-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--card-border);
+  vertical-align: middle;
+}
+
+.opening-counts-table tr:last-child td {
+  border-bottom: none;
+}
+
+.sub-code-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* TIMETABLE VERSIONS TIMELINE */
+.versions-list-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.timeline-title {
+  font-size: 13px;
+  font-weight: 750;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin: 0 0 2px;
+}
+
+.single-version-card,
+.version-timeline-card {
+  border: 1.5px solid var(--card-border);
+  background: var(--card);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+}
+
+.version-timeline-card.current-version {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.version-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.version-name {
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--text-main);
+}
+
+.version-dates {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.version-desc-sm {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.create-version-form {
+  background: var(--bg);
+  border: 1.5px dashed var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.form-subheading {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--text-main);
+  margin: 0 0 4px;
+}
+
+.versions-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
 }

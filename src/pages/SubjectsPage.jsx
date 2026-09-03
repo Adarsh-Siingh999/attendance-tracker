@@ -6,11 +6,13 @@ import { Modal } from "../components/common/Modal.jsx";
 import { EmptyState } from "../components/common/EmptyState.jsx";
 import { IconPlus, IconTrash, IconSubjects } from "../components/common/Icons.jsx";
 import { getSubjectStatus } from "../utils/attendanceCalculations.js";
+import { MidSemesterSetupModal } from "../components/common/MidSemesterSetupModal.jsx";
 
 export function SubjectsPage() {
   const { subjects, saveSubject, deleteSubject, threshold, criticalThreshold } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMidSemModalOpen, setIsMidSemModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(null);
 
   // Form State
@@ -104,9 +106,16 @@ export function SubjectsPage() {
           <h2 className="section-heading">Subject Directory</h2>
           <p className="section-desc">Manage your courses, course codes, and component attendance weights.</p>
         </div>
-        <Button variant="primary" icon={<IconPlus size={16} />} onClick={openAddModal}>
-          Add Subject
-        </Button>
+        <div className="header-action-btns">
+          {subjects.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setIsMidSemModalOpen(true)}>
+              Joined Mid-Semester? Set Opening Counts
+            </Button>
+          )}
+          <Button variant="primary" icon={<IconPlus size={16} />} onClick={openAddModal}>
+            Add Subject
+          </Button>
+        </div>
       </div>
 
       {subjects.length === 0 ? (
@@ -333,6 +342,12 @@ export function SubjectsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* MID-SEMESTER OPENING ATTENDANCE MODAL */}
+      <MidSemesterSetupModal
+        isOpen={isMidSemModalOpen}
+        onClose={() => setIsMidSemModalOpen(false)}
+      />
     </div>
   );
 }

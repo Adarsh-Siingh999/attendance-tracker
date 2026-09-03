@@ -160,19 +160,19 @@ export function DashboardPage() {
                       type="button"
                       className={`btn-mark mark-present ${status === "present" ? "active" : ""}`}
                       onClick={() => markAttendance(todayStr, index, "present")}
-                      title={status === "present" ? "Marked Present (Click to unmark)" : "Mark as Present"}
+                      title={status === "present" ? "Marked as Attended (Click to unmark)" : "Mark as Present"}
                     >
                       <IconCheck size={14} />
-                      <span>{status === "present" ? "Present ✓" : "Present"}</span>
+                      <span>{status === "present" ? "Attended ✓" : "Present"}</span>
                     </button>
                     <button
                       type="button"
                       className={`btn-mark mark-absent ${status === "absent" ? "active" : ""}`}
                       onClick={() => markAttendance(todayStr, index, "absent")}
-                      title={status === "absent" ? "Marked Absent (Click to unmark)" : "Mark as Absent"}
+                      title={status === "absent" ? "Marked as Missed (Click to unmark)" : "Mark as Absent"}
                     >
                       <IconX size={14} />
-                      <span>{status === "absent" ? "Absent ✗" : "Absent"}</span>
+                      <span>{status === "absent" ? "Missed ✗" : "Absent"}</span>
                     </button>
                   </div>
                 </div>
