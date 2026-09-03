@@ -308,7 +308,8 @@ export function CalendarPage() {
                               onClick={() => markAttendance(selectedDate, idx, "present")}
                               title={status === "present" ? "Marked as Attended (Click to unmark)" : "Mark as Present"}
                             >
-                              ✓
+                              <span className="btn-icon">✓</span>
+                              <span>{status === "present" ? "Attended" : "Present"}</span>
                             </button>
                             <button
                               type="button"
@@ -316,13 +317,9 @@ export function CalendarPage() {
                               onClick={() => markAttendance(selectedDate, idx, "absent")}
                               title={status === "absent" ? "Marked as Missed (Click to unmark)" : "Mark as Absent"}
                             >
-                              ✗
+                              <span className="btn-icon">✗</span>
+                              <span>{status === "absent" ? "Missed" : "Absent"}</span>
                             </button>
-                            {status && (
-                              <span className={`status-state-pill ${status}`}>
-                                {status === "present" ? "Attended" : "Missed"}
-                              </span>
-                            )}
                           </div>
                         </div>
                       );

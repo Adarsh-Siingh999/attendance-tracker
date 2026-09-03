@@ -1682,24 +1682,33 @@ body {
 .item-attendance-btns {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .btn-att-pill {
-  width: 32px;
+  min-width: 82px;
   height: 32px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--card-border);
   background: var(--card);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 11.5px;
+  font-weight: 750;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   touch-action: manipulation;
   user-select: none;
+  white-space: nowrap;
+}
+
+.btn-att-pill .btn-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 
 /* UNMARKED PILL PRESENT */
@@ -1712,22 +1721,24 @@ body {
 .btn-att-pill.present:hover {
   background: #dcfce7;
   border-color: #22c55e;
-  transform: scale(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(34, 197, 94, 0.15);
 }
 
 .btn-att-pill.present:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
 }
 
-/* MARKED PILL PRESENT (VIVID EMERALD ACTIVE - BIGGER) */
+/* MARKED PILL PRESENT (VIVID EMERALD ACTIVE - BIGGER & ATTENDED) */
 .btn-att-pill.present.active {
   background: linear-gradient(135deg, #16a34a, #15803d) !important;
   color: #ffffff !important;
   border-color: #14532d !important;
-  box-shadow: 0 5px 14px rgba(22, 163, 74, 0.45) !important;
-  outline: 2px solid rgba(34, 197, 94, 0.4);
-  outline-offset: 1px;
-  transform: scale(1.18);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  outline: 2px solid rgba(34, 197, 94, 0.45);
+  outline-offset: 1.5px;
+  transform: scale(1.12);
+  font-weight: 850 !important;
   z-index: 2;
 }
 
@@ -1741,28 +1752,30 @@ body {
 .btn-att-pill.absent:hover {
   background: #fee2e2;
   border-color: #ef4444;
-  transform: scale(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(239, 68, 68, 0.15);
 }
 
 .btn-att-pill.absent:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
 }
 
-/* MARKED PILL ABSENT (VIVID CRIMSON ACTIVE - BIGGER) */
+/* MARKED PILL ABSENT (VIVID CRIMSON ACTIVE - BIGGER & MISSED) */
 .btn-att-pill.absent.active {
   background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
   color: #ffffff !important;
   border-color: #991b1b !important;
-  box-shadow: 0 5px 14px rgba(220, 38, 38, 0.45) !important;
-  outline: 2px solid rgba(239, 68, 68, 0.4);
-  outline-offset: 1px;
-  transform: scale(1.18);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  outline: 2px solid rgba(239, 68, 68, 0.45);
+  outline-offset: 1.5px;
+  transform: scale(1.12);
+  font-weight: 850 !important;
   z-index: 2;
 }
 
-/* Sibling contrast when one pill is marked */
+/* Sibling contrast when one button is marked */
 .item-attendance-btns:has(.btn-att-pill.active) .btn-att-pill:not(.active) {
-  opacity: 0.65;
+  opacity: 0.60;
   transform: scale(0.92);
 }
 
@@ -3410,14 +3423,26 @@ body {
     border-radius: var(--radius-sm);
   }
 
-  .item-attendance-btns {
+  .inspector-class-item {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
   }
 
+  .item-attendance-btns {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
   .btn-att-pill {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
+    width: 100%;
+    min-width: unset;
+    height: 38px;
+    font-size: 12.5px;
+    justify-content: center;
   }
 }
 
