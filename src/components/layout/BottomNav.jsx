@@ -27,10 +27,15 @@ export function BottomNav() {
           key={tab.id}
           type="button"
           className={`bottom-nav-btn ${activeTab === tab.id ? "active" : ""}`}
-          onClick={() => setActiveTab(tab.id)}
+          onClick={() => {
+            setActiveTab(tab.id);
+            window.scrollTo({ top: 0, behavior: "instant" });
+          }}
+          aria-label={tab.label}
         >
           <span className="bottom-nav-icon">{tab.icon}</span>
           <span className="bottom-nav-label">{tab.label}</span>
+          {activeTab === tab.id && <span className="bottom-nav-indicator" />}
         </button>
       ))}
     </nav>

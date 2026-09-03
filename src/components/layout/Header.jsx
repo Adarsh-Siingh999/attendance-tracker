@@ -68,7 +68,7 @@ export function Header() {
             variant="ghost"
             size="sm"
             onClick={() => setIsGuideOpen(true)}
-            className="guide-quick-btn"
+            className="guide-quick-btn desktop-only-btn"
           >
             📖 Guide
           </Button>
@@ -79,7 +79,7 @@ export function Header() {
               variant="outline"
               size="sm"
               onClick={() => setActiveTab("skip")}
-              className="header-quick-action"
+              className="header-quick-action desktop-only-btn"
             >
               Can I Skip?
             </Button>
@@ -91,6 +91,7 @@ export function Header() {
               size="sm"
               icon={<IconSparkles size={14} />}
               onClick={() => setActiveTab("import")}
+              className="desktop-only-btn"
             >
               Import Calendar
             </Button>
@@ -105,7 +106,8 @@ export function Header() {
             onClick={() => setIsSyncModalOpen(true)}
             title="Share live condition to another phone, laptop, or tablet"
           >
-            📱 Sync Device
+            <span className="sync-btn-full">📱 Sync Device</span>
+            <span className="sync-btn-mobile">Sync</span>
           </Button>
 
           {/* USER ACCOUNT SWITCH BUTTON */}
