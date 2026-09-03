@@ -835,33 +835,82 @@ body {
 }
 
 .btn-mark {
-  border: 1px solid var(--card-border);
+  border: 1.5px solid var(--card-border);
   background: var(--bg);
-  padding: 6px 10px;
+  padding: 7px 12px;
   border-radius: var(--radius-sm);
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 750;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  transition: all 0.15s ease;
+  gap: 5px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.btn-mark:hover {
+/* UNMARKED PRESENT BUTTON */
+.btn-mark.mark-present {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.btn-mark.mark-present:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #14532d;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(34, 197, 94, 0.15);
+}
+
+.btn-mark.mark-present:active {
+  transform: scale(0.96);
+}
+
+/* MARKED PRESENT BUTTON (VIVID EMERALD ACTIVE) */
+.btn-mark.mark-present.active {
+  background: linear-gradient(135deg, #16a34a, #15803d) !important;
+  color: #ffffff !important;
+  border-color: #14532d !important;
+  font-weight: 850 !important;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  outline: 2px solid rgba(34, 197, 94, 0.35);
+  outline-offset: 1px;
   transform: translateY(-1px);
 }
 
-.btn-mark.mark-present.active {
-  background: var(--success);
-  color: white;
-  border-color: var(--success);
+/* UNMARKED ABSENT BUTTON */
+.btn-mark.mark-absent {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
 }
 
+.btn-mark.mark-absent:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #7f1d1d;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(239, 68, 68, 0.15);
+}
+
+.btn-mark.mark-absent:active {
+  transform: scale(0.96);
+}
+
+/* MARKED ABSENT BUTTON (VIVID CRIMSON ACTIVE) */
 .btn-mark.mark-absent.active {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  color: #ffffff !important;
+  border-color: #991b1b !important;
+  font-weight: 850 !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  outline: 2px solid rgba(239, 68, 68, 0.35);
+  outline-offset: 1px;
+  transform: translateY(-1px);
 }
 
 .day-notice-card {
@@ -1624,22 +1673,104 @@ body {
 
 .item-attendance-btns {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-att-pill {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--card-border);
+  border: 1.5px solid var(--card-border);
   background: var(--card);
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.btn-att-pill.present.active { background: var(--success); color: white; border-color: var(--success); }
-.btn-att-pill.absent.active { background: var(--danger); color: white; border-color: var(--danger); }
+/* UNMARKED PILL PRESENT */
+.btn-att-pill.present {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.btn-att-pill.present:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+  transform: scale(1.06);
+}
+
+.btn-att-pill.present:active {
+  transform: scale(0.94);
+}
+
+/* MARKED PILL PRESENT (VIVID EMERALD ACTIVE) */
+.btn-att-pill.present.active {
+  background: linear-gradient(135deg, #16a34a, #15803d) !important;
+  color: #ffffff !important;
+  border-color: #14532d !important;
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.4) !important;
+  outline: 2px solid rgba(34, 197, 94, 0.35);
+  outline-offset: 1px;
+  transform: scale(1.08);
+}
+
+/* UNMARKED PILL ABSENT */
+.btn-att-pill.absent {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.btn-att-pill.absent:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  transform: scale(1.06);
+}
+
+.btn-att-pill.absent:active {
+  transform: scale(0.94);
+}
+
+/* MARKED PILL ABSENT (VIVID CRIMSON ACTIVE) */
+.btn-att-pill.absent.active {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  color: #ffffff !important;
+  border-color: #991b1b !important;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.4) !important;
+  outline: 2px solid rgba(239, 68, 68, 0.35);
+  outline-offset: 1px;
+  transform: scale(1.08);
+}
+
+/* STATUS STATE PILL */
+.status-state-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-state-pill.present {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.status-state-pill.absent {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
 
 .inspector-empty-card {
   background: var(--card);
@@ -3243,5 +3374,33 @@ body {
   .class-actions-col {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  /* RESPONSIVE PRESENT/ABSENT BUTTONS ON MOBILE */
+  .class-actions-block {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn-mark {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 8px;
+    font-size: 13px;
+    min-height: 40px;
+    border-radius: var(--radius-sm);
+  }
+
+  .item-attendance-btns {
+    gap: 8px;
+  }
+
+  .btn-att-pill {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
   }
 }
