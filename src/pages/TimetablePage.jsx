@@ -4,10 +4,11 @@ import { Button } from "../components/common/Button.jsx";
 import { Modal } from "../components/common/Modal.jsx";
 import { Badge } from "../components/common/Badge.jsx";
 import { EmptyState } from "../components/common/EmptyState.jsx";
-import { IconPlus, IconTrash, IconTimetable } from "../components/common/Icons.jsx";
+import { IconPlus, IconTrash, IconTimetable, IconCamera } from "../components/common/Icons.jsx";
 import { formatDate } from "../utils/academicCalendarUtils.js";
 import { TimetableVersionsModal } from "../components/common/TimetableVersionsModal.jsx";
 import { MidSemesterSetupModal } from "../components/common/MidSemesterSetupModal.jsx";
+import { TimetableAiModal } from "../components/common/TimetableAiModal.jsx";
 
 const DAYS = [
   { index: 1, name: "Monday" },
@@ -20,12 +21,13 @@ const DAYS = [
 ];
 
 export function TimetablePage() {
-  const { timetable, timetableVersions, saveTimetable, subjects, calendar } = useApp();
+  const { timetable, timetableVersions, saveTimetable, subjects, calendar, saveSubject } = useApp();
   const [selectedDay, setSelectedDay] = useState(2); // Tuesday default
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClassIndex, setEditingClassIndex] = useState(null);
 
-  // Modals for mid-semester timetable versions and baseline setup
+  // Modals for AI scanner, mid-semester timetable versions, and baseline setup
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
   const [isMidSemModalOpen, setIsMidSemModalOpen] = useState(false);
 
@@ -151,6 +153,15 @@ export function TimetablePage() {
           </p>
         </div>
         <div className="header-action-btns">
+          <Button
+            variant="primary"
+            size="sm"
+            className="btn-ai-scanner"
+            icon={<IconCamera size={16} />}
+            onClick={() => setIsAiModalOpen(true)}
+          >
+            AI Timetable Scanner
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsVersionsModalOpen(true)}>
             Schedule Versions ({timetableVersions.length > 0 ? timetableVersions.length : 1})
           </Button>
@@ -223,13 +234,25 @@ export function TimetablePage() {
         </div>
 
         {currentDayClasses.length === 0 ? (
-          <EmptyState
-            icon={<IconTimetable size={42} />}
-            title="No classes scheduled for this day"
-            description="Add your scheduled lectures or lab periods for this day."
-            actionText="Add Class"
-            onAction={openAddModal}
-          />
+          <div className="empty-timetable-day-box">
+            <EmptyState
+              icon={<IconTimetable size={42} />}
+              title="No classes scheduled for this day"
+              description="Add your scheduled lectures or lab periods for this day, or snap a photo of your timetable to let AI auto-fill everything."
+              actionText="Add Class"
+              onAction={openAddModal}
+            />
+            <div className="empty-state-ai-cta">
+              <Button
+                variant="primary"
+                className="btn-ai-scanner"
+                icon={<IconCamera size={16} />}
+                onClick={() => setIsAiModalOpen(true)}
+              >
+                Scan Timetable Photo with AI Agent
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="timetable-classes-list">
             {currentDayClasses.map((cls, idx) => (
@@ -387,6 +410,17 @@ export function TimetablePage() {
       <MidSemesterSetupModal
         isOpen={isMidSemModalOpen}
         onClose={() => setIsMidSemModalOpen(false)}
+      />
+
+      {/* AI TIMETABLE VISION SCANNER AGENT MODAL */}
+      <TimetableAiModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        currentTimetable={timetable}
+        subjects={subjects}
+        saveTimetable={saveTimetable}
+        saveSubject={saveSubject}
+        onSelectDay={(dayIdx) => setSelectedDay(dayIdx)}
       />
     </div>
   );
