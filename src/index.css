@@ -1184,6 +1184,43 @@ body {
   color: var(--text-main);
 }
 
+/* SEMESTER PROJECTION & TOTAL CLASSES BANNER STRIP */
+.subj-semester-projection-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid var(--card-border);
+  border-left: 3.5px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.strip-lbl {
+  font-size: 10px;
+  font-weight: 750;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.strip-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.strip-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
 /* 4 PREDICTIVE TARGET METRICS GRID */
 .subj-targets-grid {
   display: grid;
@@ -1225,6 +1262,19 @@ body {
 
 .target-value.text-danger {
   color: #dc2626;
+}
+
+.target-subtext {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.comp-classes-hint {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-weight: normal;
 }
 
 .components-breakdown-box {

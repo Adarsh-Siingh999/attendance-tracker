@@ -3,6 +3,7 @@ import {
   calculatePercentage,
   calculateBestPossibleAttendance,
   calculateMaximumAllowedAbsences,
+  calculateSemesterAbsenceBudget,
   calculateRecoveryProjection,
   calculateRequiredClasses,
   getEligibility,
@@ -228,6 +229,38 @@ const compBuffer = Math.max(0, Math.floor(compPP.attended / 0.75 - compPP.conduc
 assert(compReq75 === 0, "90% component needs 0 required classes for 75%");
 assert(compReq65 === 0, "90% component needs 0 required classes for 65%");
 assert(compBuffer === 4, "90% component (18/20) allows 4 consecutive absences before dropping below 75%");
+
+// 15. Total Semester Classes & Absence Budget Comparison (Timetable & Calendar Projections)
+// Case A: 45 attended out of 50 conducted with 10 future classes scheduled (Total: 60)
+const budgetA = calculateSemesterAbsenceBudget(45, 50, 10, 75);
+assert(budgetA.totalClasses === 60, "Total semester classes = 50 conducted + 10 future = 60");
+assert(budgetA.missedSoFar === 5, "5 classes missed so far (50 - 45)");
+assert(budgetA.maxTotalSemesterAbsences === 15, "Across 60 classes, max allowed absences for 75% is 15 (floor(0.25 * 60))");
+assert(budgetA.remainingSafeSkips === 10, "Remaining safe skips = 10 (can miss all 10 future classes and still have 45/60 = 75%)");
+assert(budgetA.immediateBunkMargin === 10, "Immediate consecutive bunk margin is 10 (45/0.75 - 50 = 10)");
+assert(budgetA.canRecover === true, "Can maintain eligibility");
+
+// Case B: 20 attended out of 30 conducted with 30 future classes scheduled (Total: 60, current 66.67%)
+const budgetB = calculateSemesterAbsenceBudget(20, 30, 30, 75);
+assert(budgetB.totalClasses === 60, "Total semester classes = 30 + 30 = 60");
+assert(budgetB.missedSoFar === 10, "10 classes missed so far (30 - 20)");
+assert(budgetB.maxTotalSemesterAbsences === 15, "Semester budget is 15 absences");
+assert(budgetB.remainingSafeSkips === 5, "Remaining safe skips = 15 budget - 10 missed = 5 skips");
+assert(budgetB.immediateBunkMargin === 0, "Immediate bunk margin is 0 (currently below 75%)");
+assert(budgetB.requiredClasses === 10, "Requires attending next 10 consecutive classes to recover to 75%");
+assert(budgetB.canRecover === true, "Can recover because 10 required <= 30 remaining");
+
+// Case C: 10 attended out of 30 conducted with 30 future classes scheduled (Total: 60, already missed 20 > 15 budget)
+const budgetC = calculateSemesterAbsenceBudget(10, 30, 30, 75);
+assert(budgetC.totalClasses === 60, "Total semester classes = 60");
+assert(budgetC.missedSoFar === 20, "20 classes missed so far");
+assert(budgetC.maxTotalSemesterAbsences === 15, "Max total absences budget is 15");
+assert(budgetC.remainingSafeSkips === 0, "0 safe skips left (exceeded 15 budget)");
+assert(budgetC.canRecover === false, "Cannot recover to 75% even with 100% future attendance (best is 40/60 = 66.67%)");
+
+// Case D: 30 attended out of 30 conducted with 0 future classes scheduled (100% attendance so far)
+const budgetD = calculateSemesterAbsenceBudget(30, 30, 0, 75);
+assert(budgetD.remainingSafeSkips === 10, "With 0 future classes, returns immediate consecutive bunk allowance (10 skips)");
 
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {

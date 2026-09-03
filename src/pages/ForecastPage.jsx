@@ -32,26 +32,28 @@ export function ForecastPage() {
         </div>
 
         <div className="overview-card">
-          <span className="card-label">Required Consecutive Classes</span>
-          <strong className="card-value">{overallForecast.requiredClasses}</strong>
-          <small className="card-subtext">To reach {threshold}% eligibility threshold</small>
+          <span className="card-label">Total Semester Classes</span>
+          <strong className="card-value">{overallForecast.totalClasses ?? classesRemaining}</strong>
+          <small className="card-subtext">
+            {overallForecast.conductedClasses ?? 0} conducted + {classesRemaining} upcoming
+          </small>
         </div>
 
         <div className="overview-card">
           <span className="card-label">Max Allowed Absences</span>
-          <strong className="card-value">{overallForecast.maxAllowedAbsences}</strong>
-          <small className="card-subtext">While maintaining &gt;= {threshold}%</small>
+          <strong className="card-value">{overallForecast.maxAllowedAbsences} safe skips</strong>
+          <small className="card-subtext">
+            Budget: {overallForecast.maxTotalSemesterAbsences75 ?? 0} total ({overallForecast.missedSoFar ?? 0} used)
+          </small>
         </div>
 
         <div className="overview-card">
-          <span className="card-label">Overall Recovery Feasibility</span>
-          <strong className={`card-value ${overallForecast.canRecover ? "text-success" : "text-danger"}`}>
-            {overallForecast.canRecover ? "Can Recover" : "Cannot Recover"}
-          </strong>
+          <span className="card-label">Required Consecutive Classes</span>
+          <strong className="card-value">{overallForecast.requiredClasses}</strong>
           <small className="card-subtext">
             {overallForecast.canRecover
               ? `Requires ${overallForecast.requiredClasses} of ${classesRemaining} remaining`
-              : "Not enough classes remaining"}
+              : "Recovery not possible"}
           </small>
         </div>
       </div>
@@ -61,7 +63,7 @@ export function ForecastPage() {
         <div className="table-card-header">
           <div>
             <h3>Course-by-Course Projections</h3>
-            <p className="table-desc">Calculated individually according to your weekly timetable frequency.</p>
+            <p className="table-desc">Calculated individually comparing past conducted classes with future timetable and academic calendar schedule.</p>
           </div>
         </div>
 
@@ -71,11 +73,11 @@ export function ForecastPage() {
               <tr>
                 <th>Subject</th>
                 <th>Current</th>
-                <th>Future Classes</th>
+                <th>Total Classes</th>
+                <th>Max Absences Budget</th>
                 <th>Best Possible</th>
                 <th>Required for {threshold}%</th>
                 <th>Required for {criticalThreshold}%</th>
-                <th>Safe Absences ({threshold}%)</th>
                 <th>Recovery Feasibility</th>
               </tr>
             </thead>
@@ -95,7 +97,16 @@ export function ForecastPage() {
                       <div className="cell-subtext">{sub.attended}/{sub.conducted}</div>
                     </td>
                     <td>
-                      <span className="future-badge">{sub.futureClasses} classes</span>
+                      <span className="future-badge">{sub.totalClasses ?? (sub.conducted + sub.futureClasses)} total</span>
+                      <div className="cell-subtext">{sub.conducted} done + {sub.futureClasses} upcoming</div>
+                    </td>
+                    <td>
+                      <strong className={sub.maximumAllowedAbsences > 0 ? "text-success" : "text-danger"}>
+                        {sub.maximumAllowedAbsences} safe skips
+                      </strong>
+                      <div className="cell-subtext">
+                        Budget: {sub.maxTotalSemesterAbsences75 ?? 0} total ({sub.missedSoFar ?? (sub.conducted - sub.attended)} used)
+                      </div>
                     </td>
                     <td>
                       <strong className={sub.bestPossiblePercentage >= threshold ? "text-success" : "text-danger"}>
@@ -115,9 +126,6 @@ export function ForecastPage() {
                       ) : (
                         <strong className="text-warning">{sub.requiredClassesCritical} classes</strong>
                       )}
-                    </td>
-                    <td>
-                      <strong className="text-primary">{sub.maximumAllowedAbsences}</strong>
                     </td>
                     <td>
                       <Badge variant={sub.canRecover ? "success" : "danger"}>

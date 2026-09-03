@@ -174,6 +174,24 @@ export function SubjectsPage() {
                   />
                 </div>
 
+                {/* SEMESTER PROJECTION & TOTAL CLASSES BANNER */}
+                <div className="subj-semester-projection-strip">
+                  <div className="strip-item">
+                    <span className="strip-lbl">Total Semester Classes:</span>
+                    <strong className="strip-val">
+                      {forecast.totalClasses ?? sub.conducted} classes
+                    </strong>
+                    <span className="strip-sub">({sub.conducted} conducted + {forecast.futureClasses ?? 0} upcoming in timetable)</span>
+                  </div>
+                  <div className="strip-item">
+                    <span className="strip-lbl">Semester Absence Budget:</span>
+                    <strong className="strip-val">
+                      {forecast.maxTotalSemesterAbsences75 ?? 0} max allowed
+                    </strong>
+                    <span className="strip-sub">({forecast.missedSoFar ?? (sub.conducted - sub.attended)} used • {forecast.remainingSafeSkips75 ?? forecast.maximumAllowedAbsences ?? 0} safe skips left)</span>
+                  </div>
+                </div>
+
                 {/* 4 PREDICTIVE TARGET METRICS */}
                 <div className="subj-targets-grid">
                   <div className="target-metric-box">
@@ -181,6 +199,7 @@ export function SubjectsPage() {
                     <strong className={`target-value ${forecast.requiredClassesThreshold === 0 ? "text-success" : "text-danger"}`}>
                       {forecast.requiredClassesThreshold === 0 ? "0 (Eligible ✓)" : `${forecast.requiredClassesThreshold} classes`}
                     </strong>
+                    <span className="target-subtext">to achieve {threshold}%</span>
                   </div>
 
                   <div className="target-metric-box">
@@ -188,13 +207,21 @@ export function SubjectsPage() {
                     <strong className={`target-value ${forecast.requiredClassesCritical === 0 ? "text-success" : "text-danger"}`}>
                       {forecast.requiredClassesCritical === 0 ? "0 (Safe ✓)" : `${forecast.requiredClassesCritical} classes`}
                     </strong>
+                    <span className="target-subtext">to achieve {criticalThreshold}%</span>
                   </div>
 
                   <div className="target-metric-box">
                     <span className="target-label">Max Absences</span>
-                    <strong className={`target-value ${forecast.maximumAllowedAbsences > 0 ? "text-success" : "text-danger"}`}>
-                      {forecast.maximumAllowedAbsences > 0 ? `${forecast.maximumAllowedAbsences} safe skips` : "0 skips"}
+                    <strong className={`target-value ${(forecast.remainingSafeSkips75 ?? forecast.maximumAllowedAbsences) > 0 ? "text-success" : "text-danger"}`}>
+                      {(forecast.remainingSafeSkips75 ?? forecast.maximumAllowedAbsences) > 0
+                        ? `${forecast.remainingSafeSkips75 ?? forecast.maximumAllowedAbsences} safe skips`
+                        : "0 skips"}
                     </strong>
+                    <span className="target-subtext">
+                      {forecast.maxTotalSemesterAbsences75 !== undefined
+                        ? `Budget: ${forecast.maxTotalSemesterAbsences75} total (${forecast.missedSoFar ?? 0} used)`
+                        : "allowed"}
+                    </span>
                   </div>
 
                   <div className="target-metric-box">
@@ -202,6 +229,7 @@ export function SubjectsPage() {
                     <strong className={`target-value ${forecast.canRecover ? "text-success" : "text-danger"}`}>
                       {forecast.bestPossiblePercentage !== undefined ? `${forecast.bestPossiblePercentage.toFixed(1)}%` : "—"}
                     </strong>
+                    <span className="target-subtext">if 100% attended</span>
                   </div>
                 </div>
 
@@ -229,8 +257,11 @@ export function SubjectsPage() {
                               <span className="comp-metric-tag" title={`Classes required to reach ${criticalThreshold}%`}>
                                 Need {criticalThreshold}%: <strong>{cForecast?.requiredClassesCritical ?? 0}</strong>
                               </span>
-                              <span className="comp-metric-tag" title={`Max safe absences allowed while staying >= ${threshold}%`}>
-                                Max Skips: <strong>{cForecast?.maximumAllowedAbsences ?? 0}</strong>
+                              <span className="comp-metric-tag" title={`Max safe absences allowed while staying >= ${threshold}% (Budget: ${cForecast?.maxTotalSemesterAbsences ?? 0} total, ${cForecast?.missedSoFar ?? 0} used)`}>
+                                Max Skips: <strong>{cForecast?.remainingSafeSkips75 ?? cForecast?.maximumAllowedAbsences ?? 0}</strong>
+                                {cForecast?.totalClasses > 0 && (
+                                  <span className="comp-classes-hint"> (of {cForecast.totalClasses} total)</span>
+                                )}
                               </span>
                             </div>
                           </div>

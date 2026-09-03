@@ -7,6 +7,7 @@ import {
   calculateBestPossibleAttendance,
   calculateRequiredClasses,
   calculateMaximumAllowedAbsences,
+  calculateSemesterAbsenceBudget,
   calculatePercentage,
 } from "../utils/attendanceCalculations.js";
 import { formatDate, getClassesForDate } from "../utils/academicCalendarUtils.js";
@@ -246,6 +247,7 @@ export function AppProvider({ children }) {
     const latestExam = examEndDates.sort().at(-1);
 
     // Fallback to active semester endDate, latest exam, or 120 days from start
+    const semStart = activeSemester?.startDate || calendar?.startDate || "2000-01-01";
     let endDate = calendar?.endDate || activeSemester?.endDate || latestExam;
     if (!endDate) {
       const base = activeSemester?.startDate ? new Date(`${activeSemester.startDate}T00:00:00`) : today;
@@ -254,12 +256,17 @@ export function AppProvider({ children }) {
       endDate = formatDate(calcEnd);
     }
 
+    const activeCal = {
+      ...calendar,
+      startDate: semStart,
+      endDate: endDate,
+    };
+
     const list = [];
 
     // 1. Include today's remaining unmarked classes if today is within semester
-    const semStart = activeSemester?.startDate || "2000-01-01";
     if (todayStr >= semStart && todayStr <= endDate) {
-      const todayClasses = getClassesForDate(todayStr, { calendar, timetable: timetableData });
+      const todayClasses = getClassesForDate(todayStr, { calendar: activeCal, timetable: timetableData, ignoreSemesterRange: true });
       const todayRecords = attendanceRecords[todayStr] || {};
       todayClasses.forEach((item, index) => {
         if (!todayRecords[index]) {
@@ -275,7 +282,7 @@ export function AppProvider({ children }) {
 
       while (current <= end) {
         const dateStr = formatDate(current);
-        const dayClasses = getClassesForDate(dateStr, { calendar, timetable: timetableData });
+        const dayClasses = getClassesForDate(dateStr, { calendar: activeCal, timetable: timetableData, ignoreSemesterRange: true });
         for (const item of dayClasses) {
           list.push({ date: dateStr, ...item });
         }
@@ -290,57 +297,54 @@ export function AppProvider({ children }) {
 
   // Overall Forecast
   const overallForecast = useMemo(() => {
-    const best = calculateBestPossibleAttendance(overall.attended, overall.conducted, classesRemaining);
-    const required = calculateRequiredClasses(overall.attended, overall.conducted, threshold);
-    const maxAbsences = calculateMaximumAllowedAbsences(overall.attended, overall.conducted, classesRemaining, threshold);
-    const canRecover = best.percentage >= threshold;
+    const budget75 = calculateSemesterAbsenceBudget(overall.attended, overall.conducted, classesRemaining, threshold);
+    const budget65 = calculateSemesterAbsenceBudget(overall.attended, overall.conducted, classesRemaining, criticalThreshold);
 
     return {
-      bestPossible: best.percentage,
-      requiredClasses: required,
-      maxAllowedAbsences: maxAbsences,
-      canRecover,
-      classesRemaining,
+      totalClasses: budget75.totalClasses,
+      conductedClasses: budget75.conductedClasses,
+      attendedClasses: budget75.attendedClasses,
+      missedSoFar: budget75.missedSoFar,
+      classesRemaining: budget75.remainingClasses,
+      maxTotalSemesterAbsences75: budget75.maxTotalSemesterAbsences,
+      maxTotalSemesterAbsences65: budget65.maxTotalSemesterAbsences,
+      maxAllowedAbsences: budget75.remainingSafeSkips,
+      remainingSafeSkips75: budget75.remainingSafeSkips,
+      remainingSafeSkips65: budget65.remainingSafeSkips,
+      immediateBunkMargin75: budget75.immediateBunkMargin,
+      immediateBunkMargin65: budget65.immediateBunkMargin,
+      requiredClasses: budget75.requiredClasses,
+      requiredClassesCritical: budget65.requiredClasses,
+      bestPossible: budget75.bestPossiblePercentage,
+      canRecover: budget75.canRecover,
     };
-  }, [overall, classesRemaining, threshold]);
+  }, [overall, classesRemaining, threshold, criticalThreshold]);
 
   // Subject-level forecasts
   const subjectForecasts = useMemo(() => {
-    const futureByCode = {};
-    for (const item of futureClasses) {
-      if (item.code) {
-        futureByCode[item.code] = (futureByCode[item.code] || 0) + 1;
-        futureByCode[item.code.toLowerCase()] = (futureByCode[item.code.toLowerCase()] || 0) + 1;
+    // Helper to check if a future timetable class item matches a subject
+    const matchesSubject = (item, sub) => {
+      if (!item || !sub) return false;
+      const subCode = (sub.code || "").trim().toLowerCase();
+      const itemCode = (item.code || "").trim().toLowerCase();
+      if (subCode && itemCode && subCode === itemCode) return true;
+
+      const subName = (sub.name || "").trim().toLowerCase();
+      const itemName = (item.subject || "").trim().toLowerCase();
+      if (subName && itemName) {
+        if (subName === itemName) return true;
+        if (subName.length >= 4 && itemName.includes(subName)) return true;
+        if (itemName.length >= 4 && subName.includes(itemName)) return true;
       }
-      if (item.subject) {
-        futureByCode[item.subject] = (futureByCode[item.subject] || 0) + 1;
-        futureByCode[item.subject.toLowerCase()] = (futureByCode[item.subject.toLowerCase()] || 0) + 1;
-      }
-    }
+      return false;
+    };
 
     return subjects.map((sub) => {
-      const futureTotal =
-        futureByCode[sub.code] ||
-        futureByCode[sub.name] ||
-        futureByCode[sub.code?.toLowerCase()] ||
-        futureByCode[sub.name?.toLowerCase()] ||
-        0;
+      const subFutureClasses = futureClasses.filter((item) => matchesSubject(item, sub));
+      const futureTotal = subFutureClasses.length;
 
-      const best = calculateBestPossibleAttendance(sub.attended, sub.conducted, futureTotal);
-      const reqThreshold = calculateRequiredClasses(sub.attended, sub.conducted, threshold);
-      const reqCritical = calculateRequiredClasses(sub.attended, sub.conducted, criticalThreshold);
-
-      const maxAbs =
-        futureTotal > 0
-          ? calculateMaximumAllowedAbsences(sub.attended, sub.conducted, futureTotal, threshold)
-          : Math.max(0, Math.floor(sub.attended / (threshold / 100) - sub.conducted));
-
-      const maxAbsCritical =
-        futureTotal > 0
-          ? calculateMaximumAllowedAbsences(sub.attended, sub.conducted, futureTotal, criticalThreshold)
-          : Math.max(0, Math.floor(sub.attended / (criticalThreshold / 100) - sub.conducted));
-
-      const canRecover = best.percentage >= threshold;
+      const budget75 = calculateSemesterAbsenceBudget(sub.attended, sub.conducted, futureTotal, threshold);
+      const budget65 = calculateSemesterAbsenceBudget(sub.attended, sub.conducted, futureTotal, criticalThreshold);
 
       // Component-level forecasts (e.g. Lecture, Lab, PP, PR)
       const componentForecasts = {};
@@ -349,29 +353,62 @@ export function AppProvider({ children }) {
           const cAttended = cVal.attended || 0;
           const cConducted = cVal.conducted || 0;
           const cPct = cConducted > 0 ? (cAttended / cConducted) * 100 : null;
-          const cReq75 = calculateRequiredClasses(cAttended, cConducted, threshold);
-          const cReq65 = calculateRequiredClasses(cAttended, cConducted, criticalThreshold);
-          const cMaxAbs = Math.max(0, Math.floor(cAttended / (threshold / 100) - cConducted));
+
+          // Match future classes of this specific component type
+          const cFutureClasses = subFutureClasses.filter((item) => {
+            if (!item.type) return true;
+            const itemType = item.type.trim().toLowerCase();
+            const compType = cName.trim().toLowerCase();
+            if (itemType === compType) return true;
+            if (compType === "lecture" && itemType === "pp") return true;
+            if (compType === "lab" && itemType === "pr") return true;
+            if (compType === "pp" && itemType === "lecture") return true;
+            if (compType === "pr" && itemType === "lab") return true;
+            return false;
+          });
+
+          const cFutureTotal = cFutureClasses.length;
+          const cBudget75 = calculateSemesterAbsenceBudget(cAttended, cConducted, cFutureTotal, threshold);
+          const cBudget65 = calculateSemesterAbsenceBudget(cAttended, cConducted, cFutureTotal, criticalThreshold);
+
           componentForecasts[cName] = {
             attended: cAttended,
             conducted: cConducted,
+            missedSoFar: cBudget75.missedSoFar,
+            totalClasses: cBudget75.totalClasses,
+            futureClasses: cFutureTotal,
             percentage: cPct,
-            requiredClassesThreshold: cReq75,
-            requiredClassesCritical: cReq65,
-            maximumAllowedAbsences: cMaxAbs,
+            maxTotalSemesterAbsences: cBudget75.maxTotalSemesterAbsences,
+            maximumAllowedAbsences: cBudget75.remainingSafeSkips,
+            remainingSafeSkips75: cBudget75.remainingSafeSkips,
+            remainingSafeSkips65: cBudget65.remainingSafeSkips,
+            immediateBunkMargin: cBudget75.immediateBunkMargin,
+            requiredClassesThreshold: cBudget75.requiredClasses,
+            requiredClassesCritical: cBudget65.requiredClasses,
+            bestPossiblePercentage: cBudget75.bestPossiblePercentage,
+            canRecover: cBudget75.canRecover,
           };
         }
       }
 
       return {
         ...sub,
+        totalClasses: budget75.totalClasses,
         futureClasses: futureTotal,
-        bestPossiblePercentage: best.percentage,
-        requiredClassesThreshold: reqThreshold,
-        requiredClassesCritical: reqCritical,
-        maximumAllowedAbsences: maxAbs,
-        maximumAllowedAbsencesCritical: maxAbsCritical,
-        canRecover,
+        conductedClasses: budget75.conductedClasses,
+        attendedClasses: budget75.attendedClasses,
+        missedSoFar: budget75.missedSoFar,
+        maxTotalSemesterAbsences75: budget75.maxTotalSemesterAbsences,
+        maxTotalSemesterAbsences65: budget65.maxTotalSemesterAbsences,
+        maximumAllowedAbsences: budget75.remainingSafeSkips,
+        remainingSafeSkips75: budget75.remainingSafeSkips,
+        remainingSafeSkips65: budget65.remainingSafeSkips,
+        immediateBunkMargin75: budget75.immediateBunkMargin,
+        immediateBunkMargin65: budget65.immediateBunkMargin,
+        requiredClassesThreshold: budget75.requiredClasses,
+        requiredClassesCritical: budget65.requiredClasses,
+        bestPossiblePercentage: budget75.bestPossiblePercentage,
+        canRecover: budget75.canRecover,
         componentForecasts,
       };
     });

@@ -133,14 +133,27 @@ export function calculateAttendanceAfterAbsence(attended, conducted, remainingCl
 
 /**
  * Calculates the maximum number of upcoming classes that can be missed while staying >= target %.
+ * If remainingClasses is 0 or omitted, returns immediate consecutive bunk allowance based on conducted classes.
  */
 export function calculateMaximumAllowedAbsences(attended, conducted, remainingClasses, target = DEFAULT_THRESHOLD) {
   const safeRemaining = Math.max(0, Number(remainingClasses) || 0);
-  if (safeRemaining === 0) return 0;
+  const safeAttended = Math.max(0, Number(attended) || 0);
+  const safeConducted = Math.max(0, Number(conducted) || 0);
 
+  // If no remaining classes are scheduled or remainingClasses === 0:
+  // Calculate immediate consecutive absences allowed right now based on conducted classes
+  if (safeRemaining === 0) {
+    if (safeConducted === 0) return 0;
+    const currentPct = (safeAttended / safeConducted) * 100;
+    if (currentPct < target) return 0;
+    return Math.max(0, Math.floor(safeAttended / (target / 100) - safeConducted));
+  }
+
+  // When upcoming classes are scheduled (e.g. from timetable and academic calendar):
+  // (attended + remaining - abs) / (conducted + remaining) >= target / 100
   let maxSafe = 0;
   for (let abs = 0; abs <= safeRemaining; abs++) {
-    const projected = calculateAttendanceAfterAbsence(attended, conducted, safeRemaining, abs);
+    const projected = calculateAttendanceAfterAbsence(safeAttended, safeConducted, safeRemaining, abs);
     if (projected.percentage >= target) {
       maxSafe = abs;
     } else {
@@ -149,6 +162,50 @@ export function calculateMaximumAllowedAbsences(attended, conducted, remainingCl
   }
 
   return maxSafe;
+}
+
+/**
+ * Calculates a comprehensive semester absence budget comparing past conducted classes,
+ * future scheduled classes (from timetable and academic calendar), total classes, and
+ * allowed absences.
+ */
+export function calculateSemesterAbsenceBudget(attended, conducted, remainingClasses, target = DEFAULT_THRESHOLD) {
+  const safeAttended = Math.max(0, Number(attended) || 0);
+  const safeConducted = Math.max(0, Number(conducted) || 0);
+  const safeRemaining = Math.max(0, Number(remainingClasses) || 0);
+  const totalClasses = safeConducted + safeRemaining;
+  const missedSoFar = Math.max(0, safeConducted - safeAttended);
+
+  // Max total absences allowed across the ENTIRE semester
+  const maxTotalSemesterAbsences = totalClasses > 0
+    ? Math.floor((1 - target / 100) * totalClasses)
+    : 0;
+
+  // Remaining safe skips out of the upcoming future classes
+  const remainingSafeSkips = calculateMaximumAllowedAbsences(safeAttended, safeConducted, safeRemaining, target);
+
+  // Immediate consecutive bunk allowance right now (without any future class attendance assumed)
+  const immediateBunkMargin = safeConducted > 0 && (safeAttended / safeConducted) * 100 >= target
+    ? Math.max(0, Math.floor(safeAttended / (target / 100) - safeConducted))
+    : 0;
+
+  const bestPossible = calculateBestPossibleAttendance(safeAttended, safeConducted, safeRemaining);
+  const canRecover = bestPossible.percentage >= target;
+  const requiredClasses = calculateRequiredClasses(safeAttended, safeConducted, target);
+
+  return {
+    totalClasses,
+    conductedClasses: safeConducted,
+    attendedClasses: safeAttended,
+    missedSoFar,
+    remainingClasses: safeRemaining,
+    maxTotalSemesterAbsences,
+    remainingSafeSkips,
+    immediateBunkMargin,
+    canRecover,
+    bestPossiblePercentage: bestPossible.percentage,
+    requiredClasses,
+  };
 }
 
 /**
