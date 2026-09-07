@@ -1594,6 +1594,13 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  gap: 12px;
+}
+
+.cal-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .cal-nav-btn {
@@ -1607,15 +1614,39 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .cal-nav-btn:hover {
   background: var(--bg);
+  border-color: var(--primary);
+}
+
+.cal-today-btn {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-today-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
 }
 
 .cal-current-title {
   font-size: 18px;
   font-weight: 800;
+  margin: 0;
 }
 
 .calendar-weekdays-row {
@@ -1684,9 +1715,37 @@ body {
   border-color: #fecaca;
 }
 
+.cal-day-cell.today-cell {
+  border-color: #3b82f6 !important;
+  background: #f0f7ff !important;
+}
+
+.cal-day-cell.today-cell.selected-day {
+  box-shadow: 0 0 0 2px #2563eb inset !important;
+}
+
 .day-number {
   font-size: 13px;
   font-weight: 750;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.day-number.today-number {
+  color: #1d4ed8;
+}
+
+.today-badge-text {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
 }
 
 .day-cell-meta {

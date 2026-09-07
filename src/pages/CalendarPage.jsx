@@ -50,17 +50,12 @@ export function CalendarPage() {
     overall,
   } = useApp();
 
-  const liveStart = activeSemester?.liveAttendanceStart || null;
+  // Initialize calendar to current date of the current month
+  const today = new Date();
+  const todayStr = formatDate(today.getFullYear(), today.getMonth(), today.getDate());
 
-  const [currentDate, setCurrentDate] = useState(() => {
-    if (calendar?.startDate) {
-      const parts = calendar.startDate.split("-").map(Number);
-      return new Date(parts[0], parts[1] - 1, 1);
-    }
-    return new Date();
-  });
-
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [currentDate, setCurrentDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(() => todayStr);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isInstructionalModalOpen, setIsInstructionalModalOpen] = useState(false);
 
@@ -90,13 +85,29 @@ export function CalendarPage() {
   }
 
   const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-    setSelectedDate(null);
+    const newD = new Date(year, month - 1, 1);
+    setCurrentDate(newD);
+    if (newD.getFullYear() === today.getFullYear() && newD.getMonth() === today.getMonth()) {
+      setSelectedDate(todayStr);
+    } else {
+      setSelectedDate(null);
+    }
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-    setSelectedDate(null);
+    const newD = new Date(year, month + 1, 1);
+    setCurrentDate(newD);
+    if (newD.getFullYear() === today.getFullYear() && newD.getMonth() === today.getMonth()) {
+      setSelectedDate(todayStr);
+    } else {
+      setSelectedDate(null);
+    }
+  };
+
+  const goToToday = () => {
+    const now = new Date();
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedDate(formatDate(now.getFullYear(), now.getMonth(), now.getDate()));
   };
 
   const getDayStatus = (dateStr) => {
@@ -189,14 +200,19 @@ export function CalendarPage() {
         {/* CALENDAR MONTH GRID */}
         <div className="calendar-main-card">
           <div className="calendar-nav-header">
-            <button type="button" className="cal-nav-btn" onClick={prevMonth} aria-label="Previous month">
-              ←
-            </button>
-            <h3 className="cal-current-title">
-              {MONTHS[month]} {year}
-            </h3>
-            <button type="button" className="cal-nav-btn" onClick={nextMonth} aria-label="Next month">
-              →
+            <div className="cal-nav-controls">
+              <button type="button" className="cal-nav-btn" onClick={prevMonth} aria-label="Previous month">
+                ←
+              </button>
+              <h3 className="cal-current-title">
+                {MONTHS[month]} {year}
+              </h3>
+              <button type="button" className="cal-nav-btn" onClick={nextMonth} aria-label="Next month">
+                →
+              </button>
+            </div>
+            <button type="button" className="cal-today-btn" onClick={goToToday} title="Jump to current date">
+              Today
             </button>
           </div>
 
@@ -217,6 +233,7 @@ export function CalendarPage() {
               const dateStr = formatDate(year, month, day);
               const status = getDayStatus(dateStr);
               const isSelected = selectedDate === dateStr;
+              const isToday = dateStr === todayStr;
               const dateRecs = attendanceRecords[dateStr] || {};
               const presCount = Object.values(dateRecs).filter((s) => (typeof s === "object" ? s?.status : s) === "present").length;
               const absCount = Object.values(dateRecs).filter((s) => (typeof s === "object" ? s?.status : s) === "absent").length;
@@ -229,10 +246,13 @@ export function CalendarPage() {
                 <button
                   key={dateStr}
                   type="button"
-                  className={`cal-day-cell ${status} ${isSelected ? "selected-day" : ""}`}
+                  className={`cal-day-cell ${status} ${isSelected ? "selected-day" : ""} ${isToday ? "today-cell" : ""}`}
                   onClick={() => setSelectedDate(dateStr)}
                 >
-                  <strong className="day-number">{day}</strong>
+                  <strong className={`day-number ${isToday ? "today-number" : ""}`}>
+                    <span>{day}</span>
+                    {isToday && <span className="today-badge-text">Today</span>}
+                  </strong>
                   <div className="day-cell-meta">
                     {isSpecialInst && <span className="cell-tag tag-instructional">Working Day</span>}
                     {holiday && <span className="cell-tag tag-holiday">Holiday</span>}
