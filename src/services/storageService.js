@@ -382,7 +382,7 @@ export const storageService = {
           endDate: null,
           eligibilityThreshold: 75,
           criticalThreshold: 65,
-          weekends: [0, 6],
+          weekends: [],
           isActive: true,
           isArchived: false,
         },
@@ -396,10 +396,11 @@ export const storageService = {
           academicYear: "2026-27",
           startDate: userSemesters[0].startDate,
           endDate: null,
-          weekends: [0, 6],
+          weekends: [],
           holidays: [],
           examinations: {},
           nonInstructionalDays: [],
+          specialInstructionalDays: [],
         },
       };
     }
@@ -586,7 +587,7 @@ export const storageService = {
       endDate: semesterData.endDate || null,
       eligibilityThreshold: Number(semesterData.eligibilityThreshold) || 75,
       criticalThreshold: Number(semesterData.criticalThreshold) || 65,
-      weekends: semesterData.weekends || [0, 6],
+      weekends: Array.isArray(semesterData.weekends) ? semesterData.weekends : [],
       isActive: Boolean(semesterData.isActive),
       isArchived: Boolean(semesterData.isArchived),
       updatedAt: new Date().toISOString(),
@@ -744,23 +745,29 @@ export const storageService = {
           };
         }
       } else {
-        // Wrap previous flat timetable as version 1
+        // If previous timetable had classes, archive it
         const activeSem = this.getActiveSemester();
-        versions.push({
-          id: "v-initial",
-          effectiveFrom: activeSem?.startDate || "2026-08-01",
-          effectiveTo: getYesterday(applyFromDate),
-          timetable: existing || {},
-          note: "Initial Schedule",
-        });
+        const hasExistingClasses = Object.values(existing || {}).some((day) => Array.isArray(day) && day.length > 0);
+        if (hasExistingClasses) {
+          versions.push({
+            id: "v-initial",
+            effectiveFrom: activeSem?.startDate || "2026-08-01",
+            effectiveTo: getYesterday(applyFromDate),
+            timetable: existing || {},
+            note: "Initial Schedule",
+          });
+        }
       }
+
+      const activeSem = this.getActiveSemester();
+      const effectiveStart = versions.length === 0 ? (activeSem?.startDate || applyFromDate) : applyFromDate;
 
       versions.push({
         id: `v-${Date.now()}`,
-        effectiveFrom: applyFromDate,
+        effectiveFrom: effectiveStart,
         effectiveTo: null,
         timetable,
-        note: note || `Schedule updated from ${applyFromDate}`,
+        note: note || `Schedule updated from ${effectiveStart}`,
         createdAt: new Date().toISOString(),
       });
 
@@ -801,10 +808,11 @@ export const storageService = {
       academicYear: activeSem?.academicYear || "2026-27",
       startDate: activeSem?.startDate || "2026-08-01",
       endDate: activeSem?.endDate || null,
-      weekends: activeSem?.weekends || [0, 6],
+      weekends: Array.isArray(activeSem?.weekends) ? activeSem.weekends : [],
       holidays: [],
       examinations: {},
       nonInstructionalDays: [],
+      specialInstructionalDays: [],
     };
   },
 

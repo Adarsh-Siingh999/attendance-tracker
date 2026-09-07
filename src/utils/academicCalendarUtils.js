@@ -20,10 +20,21 @@ export function getDayOfWeek(dateString) {
   return parseDate(dateString).getDay();
 }
 
-export function isWeekend(dateString, weekends = null) {
+export function isWeekend(dateString, weekends = null, timetable = null) {
   const day = getDayOfWeek(dateString);
-  const activeWeekends = weekends || defaultCalendar.weekends || [0, 1];
-  return activeWeekends.includes(day);
+  // Default to empty array if not explicitly configured so Sundays are never blocked by default
+  const activeWeekends = Array.isArray(weekends) ? weekends : [];
+  if (!activeWeekends.includes(day)) {
+    return false;
+  }
+  // If the timetable has scheduled classes for this day, do not treat it as a weekend
+  if (timetable) {
+    const activeTimetable = getTimetableForDate(dateString, timetable);
+    if (activeTimetable && activeTimetable[day] && activeTimetable[day].length > 0) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function getHoliday(dateString, holidays = null) {
@@ -114,6 +125,22 @@ export function isNonInstructionalDay(dateString, nonInstructionalDays = null) {
 }
 
 /**
+ * Checks if a date has been explicitly marked as an Instructional Day
+ * (overriding holidays, weekends, or non-instructional days).
+ */
+export function getSpecialInstructionalDay(dateString, specialInstructionalDays = null) {
+  if (!specialInstructionalDays || !Array.isArray(specialInstructionalDays)) return null;
+  return specialInstructionalDays.find((entry) => {
+    if (typeof entry === "string") return entry === dateString;
+    return entry && entry.date === dateString;
+  }) || null;
+}
+
+export function isSpecialInstructionalDay(dateString, specialInstructionalDays = null) {
+  return Boolean(getSpecialInstructionalDay(dateString, specialInstructionalDays));
+}
+
+/**
  * Resolves scheduled classes for a given date.
  */
 export function getClassesForDate(dateString, options = {}) {
@@ -127,21 +154,35 @@ export function getClassesForDate(dateString, options = {}) {
     return [];
   }
 
+  // 1. Check if explicitly marked as an Instructional Day (takes absolute precedence)
+  const specialInstructional = getSpecialInstructionalDay(dateString, calendar?.specialInstructionalDays);
+  if (specialInstructional) {
+    const targetDay = (typeof specialInstructional === "object" && specialInstructional.scheduleDay !== undefined && specialInstructional.scheduleDay !== null)
+      ? Number(specialInstructional.scheduleDay)
+      : getDayOfWeek(dateString);
+    const activeTimetable = getTimetableForDate(dateString, timetable);
+    return (activeTimetable && activeTimetable[targetDay]) ? [...activeTimetable[targetDay]] : [];
+  }
+
+  // 2. Explicit holidays
   const holiday = getHoliday(dateString, calendar?.holidays);
   if (holiday) {
     return [];
   }
 
+  // 3. Explicit non-instructional days
   if (isNonInstructionalDay(dateString, calendar?.nonInstructionalDays)) {
     return [];
   }
 
+  // 4. Non-class examination periods
   const exam = getExamForDate(dateString, calendar?.examinations);
   if (exam && !exam.countsAsClass) {
     return [];
   }
 
-  if (isWeekend(dateString, calendar?.weekends)) {
+  // 5. Weekend check: Only blocks if timetable has NO classes for this day
+  if (isWeekend(dateString, calendar?.weekends, timetable)) {
     return [];
   }
 
@@ -160,10 +201,11 @@ export function getClassesForDate(dateString, options = {}) {
 export function generateSemesterScheduleFromTimetable({
   startDate,
   endDate,
-  weekends = [0, 6],
+  weekends = [],
   holidays = [],
   examinations = {},
   nonInstructionalDays = [],
+  specialInstructionalDays = [],
   weeklyTimetable = {},
 }) {
   if (!startDate || !endDate || startDate > endDate) {
@@ -177,6 +219,7 @@ export function generateSemesterScheduleFromTimetable({
     holidays,
     examinations,
     nonInstructionalDays,
+    specialInstructionalDays,
   };
 
   const classList = [];

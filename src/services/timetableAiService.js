@@ -435,6 +435,23 @@ export const SAMPLE_PRESETS = [
       },
     ],
   },
+  {
+    id: "sunday-classes",
+    title: "Sunday Working Schedule",
+    desc: "Active Sunday routine — 4 periods demonstrating Sunday classes (AI, Cloud Computing, Practical Lab)",
+    previewDays: [
+      {
+        dayIndex: 0,
+        dayName: "Sunday",
+        classes: [
+          { start: "09:30", end: "10:30", subject: "Artificial Intelligence", code: "AI301", type: "Lecture", room: "Room 101" },
+          { start: "10:30", end: "11:30", subject: "Cloud Computing & DevOps", code: "CS601", type: "Lecture", room: "Room 101" },
+          { start: "11:45", end: "13:45", subject: "AI & Neural Networks Lab", code: "AI301L", type: "PR", room: "AI Lab 1" },
+          { start: "14:30", end: "15:30", subject: "Professional Ethics", code: "HU201", type: "Lecture", room: "Audi A" },
+        ],
+      },
+    ],
+  },
 ];
 
 /**

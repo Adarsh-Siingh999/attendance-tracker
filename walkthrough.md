@@ -1,57 +1,81 @@
-# AttendanceFlow — Total Classes, Absence Budget & August Baseline Timetable
+# Walkthrough — Dynamic Attendance Baseline, Sunday Support, Mark as Instructional & AI Engine
 
-## 1. 🎯 Maximum Allowed Absences & Total Classes Engine
-
-We conducted a complete mathematical and architectural audit of the **Max Absences Allowed** logic, comparing past conducted classes with future timetable classes projected through the official academic calendar.
-
-### Mathematical Foundations:
-For any course (and overall):
-- $C = \text{conducted classes recorded so far}$
-- $A = \text{attended classes recorded so far}$
-- $M = C - A = \text{classes missed / absent so far}$
-- $F = \text{future classes remaining}$ (projected by repeating the weekly timetable through all instructional dates in the academic calendar, excluding holidays, non-instructional days, exams with `countsAsClass: false`, and weekends).
-- $T = C + F = \text{Total Semester Classes}$.
-- $P_{\text{target}} = \text{eligibility threshold}$ (e.g., $75\% = 0.75$, $65\% = 0.65$).
-
-### The 4 Distinct Metrics Calculated:
-
-1. **Total Semester Absence Budget**:
-   $$\text{Max Total Absences in Semester} = \lfloor (1 - P_{\text{target}}) \times T \rfloor = \lfloor (1 - P_{\text{target}}) \times (C + F) \rfloor$$
-
-2. **Absences Already Missed**:
-   $$\text{Missed So Far} = C - A$$
-
-3. **Remaining Safe Skips (Future Allowed Absences)**:
-   $$\text{Remaining Safe Skips} = \text{Max Total Absences} - \text{Missed So Far}$$
-
-4. **Immediate Consecutive Bunks (Right Now)**:
-   $$\text{Immediate Bunks} = \max(0, \lfloor \frac{A}{P_{\text{target}}} - C \rfloor)$$
+We have refactored the Attendance Tracker to eliminate hardcoded August baseline locks, enable first-class Sunday classes without false "Weekend" blocking, added the ability to mark any day as an Instructional Working Day, and upgraded the AI Timetable Vision engine for multi-photo uploads and automatic subject generation.
 
 ---
 
-## 2. 📅 August Baseline Timetable vs. September 1 Live Tracking
+## 1. 🔄 Dynamic Baseline (No More August Traps for New Users)
 
-### The Architecture:
-1. **August Baseline Period (`2026-08-01` to `2026-08-31`)**:
-   - Uses the **`August Baseline Timetable`** (`augustSemesterTimetable` / version `semester-v-august-baseline`).
-   - Attendance for all of August is preserved in the student's initial baseline ($45$ attended / $77$ conducted).
-   - In [`AppContext.jsx`](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/context/AppContext.jsx), dates prior to `liveAttendanceStart` (`2026-09-01`) are excluded from daily live summation, preventing double-counting while preserving exact historical dates.
-   - In [`CalendarPage.jsx`](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/pages/CalendarPage.jsx), August dates display a gold banner:
-     `📌 August Baseline Period: Historical classes use the August Baseline Timetable. Attendance is preserved as your initial baseline (45/77).`
-   - Day Inspector clearly labels August dates as `📌 August Baseline Timetable (Pre-Sept 1)`.
+### Problem Solved:
+Previously, `AppContext.jsx` hardcoded `liveStart = activeSemester?.liveAttendanceStart || "2026-09-01"` and ignored `date < liveStart`. When a new user joined in another month and marked attendance, the date could be suppressed or forced into August baseline assumptions.
 
-2. **September Onward Live Tracking (`2026-09-01` to `2026-12-31`)**:
-   - Uses the revised **`September Onward Timetable`** (`semesterTimetable` / version `semester-v-september-current`).
-   - Active daily attendance logging increments live attendance on top of the August baseline.
-   - Calendar and Day Inspector display an electric blue badge: `⚡ Live Attendance Active (September Onward Timetable)`.
+### The Fix:
+- **`src/context/AppContext.jsx`**:
+  - `liveStart` now defaults to `null` (not `"2026-09-01"`).
+  - Only legacy Semester V (`sem-5-2026`) applies the August baseline cutoff.
+  - For **any new user** joining at any time of any month, every date where attendance is marked is immediately counted into their live active attendance record.
+- **`src/pages/CalendarPage.jsx`**:
+  - Banners for August Baseline and September Live Tracking are now restricted strictly to `activeSemester?.id === "sem-5-2026"`.
+  - New user profiles and custom semesters enjoy a completely clean, live calendar interface.
 
 ---
 
-## 3. 🧪 Automated Test Verification
+## 2. ☀️ Sunday Classes & Weekend Handling
 
-- **`npm test`**: **329 / 329 tests passing (100%)**
-  - `testAttendanceCalculations.js`: **66 / 66 passed** (including Section 16 testing August baseline timetable resolution, September timetable resolution, and live tracking boundaries).
-  - `testAttendanceButtons.js`: **23 / 23 passed**
-  - `testTimetableAi.js`: **218 / 218 passed**
-  - `testCrossDeviceSync.js`: **22 / 22 passed**
-- **Production Build**: `npx vite build` completed in **160ms** with 0 errors.
+### Problem Solved:
+Previously, calendars and semesters defaulted `weekends` to `[0, 1]` or `[0, 6]`. When a user created a profile and uploaded Sunday classes, `isWeekend` intercepted Sunday (day 0) and showed "Weekend (No lectures scheduled)", preventing the classes from displaying in the calendar.
+
+### The Fix:
+- **`src/utils/academicCalendarUtils.js`**:
+  - `isWeekend(dateString, weekends, timetable)` now checks if the date's timetable contains scheduled classes (`activeTimetable[day]?.length > 0`).
+  - **If a day has classes in the timetable, it is never blocked as a weekend!**
+  - Default `weekends` fallback is now `[]` instead of hardcoded `[0, 1]`.
+- **`src/services/storageService.js`**:
+  - New user creation and clean semesters default `weekends: []`, ensuring only explicitly selected days are treated as non-class days.
+  - Sunday classes uploaded or scheduled appear immediately in both the Weekly Timetable and the Calendar Day Inspector.
+
+---
+
+## 3. ✨ "Mark Day as Instructional" Feature
+
+### What Was Built:
+In [`CalendarPage.jsx`](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/pages/CalendarPage.jsx), students can now designate **any day** (including weekends, holidays, or make-up days) as an **Instructional Day**:
+1. **Inspector Quick Action**: Click **"✨ Mark as Instructional Day"**.
+2. **Timetable Schedule Selector**:
+   - Option A: *Default for this day of week* (e.g. use Sunday's classes).
+   - Option B: *Follow an alternative weekday routine* (e.g. follow Monday's 8 periods on a Working Sunday).
+3. **Reason / Note**: Custom description (e.g. *"Working Sunday / Make-up lectures"*).
+4. **Calendar Visual Indicators**:
+   - Day cell displays a green `Working Day` badge.
+   - Day inspector shows an emerald `✨ Special Instructional Day` banner.
+   - All classes are loaded and active for 1-click **Present / Absent** marking.
+5. **Revert Button**: Click **"↩ Remove Working Day Status"** anytime to return to standard calendar rules.
+
+---
+
+## 4. 🤖 Upgraded AI Timetable Vision & Multi-Photo Engine
+
+### Enhancements Made:
+- **Multi-Photo Queue**:
+  - The dropzone now accepts single or **multiple photos at once** (e.g. photo of Monday + photo of Sunday).
+  - Shows visual thumbnails with file names and individual remove buttons.
+  - Supports "+ Add More Photos" to queue additional images before analyzing.
+- **7-Day Support (Including Sunday)**:
+  - Added built-in `"Sunday Working Schedule"` preset (Artificial Intelligence, Cloud Computing, AI Lab, Professional Ethics).
+  - AI extraction prompt explicitly parses Sunday (Day 0) through Saturday (Day 6).
+  - Merges classes detected across multiple photos chronologically into the final schedule.
+- **Automatic Subject & Timetable Creation**:
+  - Auto-detects missing subjects and adds them directly to the user's subjects list upon confirmation.
+  - For new accounts, initial timetable versioning ensures past semester days are not left blank.
+
+---
+
+## 5. 🧪 Automated Test Verification
+
+All 4 test suites passed with 100% accuracy:
+- **`testAttendanceCalculations.js`**: **73 / 73 tests passed** (including Section 17 testing Sunday timetable rendering, weekend protection bypass, and special instructional day overrides).
+- **`testAttendanceButtons.js`**: **23 / 23 tests passed**
+- **`testTimetableAi.js`**: **230 / 230 tests passed** (including Sunday preset tests and 7-day parsing).
+- **`testCrossDeviceSync.js`**: **22 / 22 tests passed**
+- **Total**: **348 / 348 tests passing (100%)**
+- **Production Build**: `npx vite build` succeeded in **396ms** with zero errors.

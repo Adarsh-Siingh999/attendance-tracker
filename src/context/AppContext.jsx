@@ -132,7 +132,7 @@ export function AppProvider({ children }) {
       name: "Default Semester",
       eligibilityThreshold: 75,
       criticalThreshold: 65,
-      weekends: [0, 6],
+      weekends: [],
     };
   }, [semesters, activeSemesterId]);
 
@@ -161,13 +161,13 @@ export function AppProvider({ children }) {
     let present = 0;
     let absent = 0;
 
-    const liveStart = activeSemester?.liveAttendanceStart || "2026-09-01";
+    // Only apply liveStart if explicitly defined for a legacy pre-tallied baseline semester;
+    // for all new users and new semesters, attendance counts from any date marked.
+    const liveStart = activeSemester?.liveAttendanceStart || null;
 
     for (const [date, records] of Object.entries(attendanceRecords || {})) {
       if (!records || typeof records !== "object") continue;
 
-      // August attendance is preserved as the initial baseline in subject components.
-      // Live daily increments are tracked and counted strictly from September 1 onward.
       if (liveStart && date < liveStart) continue;
 
       const classes = getClassesForDate(date, { calendar, timetable: timetableData, ignoreSemesterRange: true });
@@ -206,7 +206,7 @@ export function AppProvider({ children }) {
     }
 
     return { present, absent, subjectRecords };
-  }, [attendanceRecords, calendar, timetableData]);
+  }, [attendanceRecords, calendar, timetableData, activeSemester]);
 
   // Aggregate subjects with live attendance
   const subjects = useMemo(() => {
@@ -470,6 +470,48 @@ export function AppProvider({ children }) {
     return storageService.savePublicSettings(newSettings);
   };
 
+  const markDateAsInstructional = (date, scheduleDay = null, note = "Instructional Day") => {
+    const currentCal = calendar || {};
+    const existingSpecial = Array.isArray(currentCal.specialInstructionalDays)
+      ? [...currentCal.specialInstructionalDays]
+      : [];
+
+    const filtered = existingSpecial.filter((entry) => {
+      if (typeof entry === "string") return entry !== date;
+      return entry && entry.date !== date;
+    });
+
+    filtered.push({ date, scheduleDay, note });
+
+    const updatedCal = {
+      ...currentCal,
+      specialInstructionalDays: filtered,
+    };
+    saveCalendar(updatedCal);
+    setCalendar(updatedCal);
+    return updatedCal;
+  };
+
+  const unmarkDateAsInstructional = (date) => {
+    const currentCal = calendar || {};
+    const existingSpecial = Array.isArray(currentCal.specialInstructionalDays)
+      ? [...currentCal.specialInstructionalDays]
+      : [];
+
+    const filtered = existingSpecial.filter((entry) => {
+      if (typeof entry === "string") return entry !== date;
+      return entry && entry.date !== date;
+    });
+
+    const updatedCal = {
+      ...currentCal,
+      specialInstructionalDays: filtered,
+    };
+    saveCalendar(updatedCal);
+    setCalendar(updatedCal);
+    return updatedCal;
+  };
+
   const value = {
     // Navigation & Auth
     activeTab,
@@ -501,6 +543,8 @@ export function AppProvider({ children }) {
     saveTimetable,
     calendar,
     saveCalendar,
+    markDateAsInstructional,
+    unmarkDateAsInstructional,
     attendanceRecords,
     markAttendance,
     clearDateAttendance,

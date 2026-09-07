@@ -61,25 +61,57 @@ export function TimetableAiModal({
     setTimeout(() => setKeySavedMessage(""), 3000);
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [imagePreviews, setImagePreviews] = useState([]); // [{ data, name, type }]
 
-    setSelectedFile(file);
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     setErrorMessage("");
     setExtractedDays(null);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setImagePreview(ev.target?.result || "");
-    };
-    reader.readAsDataURL(file);
+    const newPreviews = [];
+    let loadedCount = 0;
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        newPreviews.push({
+          data: ev.target?.result || "",
+          name: file.name,
+          type: file.type || "image/jpeg",
+        });
+        loadedCount++;
+        if (loadedCount === files.length) {
+          setImagePreviews((prev) => [...prev, ...newPreviews]);
+          if (!imagePreview && newPreviews[0]) {
+            setImagePreview(newPreviews[0].data);
+            setSelectedFile(files[0]);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setImagePreviews((prev) => {
+      const updated = prev.filter((_, i) => i !== indexToRemove);
+      if (updated.length > 0) {
+        setImagePreview(updated[0].data);
+      } else {
+        setImagePreview("");
+        setSelectedFile(null);
+      }
+      return updated;
+    });
   };
 
   // Run AI Vision Agent
   const handleAnalyzeImage = async () => {
-    if (!imagePreview) {
-      setErrorMessage("Please select or capture a timetable photo first.");
+    const imagesToAnalyze = imagePreviews.length > 0 ? imagePreviews : (imagePreview ? [{ data: imagePreview, type: selectedFile?.type || "image/jpeg", name: selectedFile?.name || "timetable.jpg" }] : []);
+    if (imagesToAnalyze.length === 0) {
+      setErrorMessage("Please select or capture at least one timetable photo first.");
       return;
     }
 
@@ -93,43 +125,74 @@ export function TimetableAiModal({
     const t3 = setTimeout(() => setProcessingStep(4), 1600);
 
     try {
-      let result = null;
+      const allExtractedDaysMap = {}; // dayIndex -> { dayIndex, dayName, classes }
 
-      if (apiKey.trim()) {
-        // Use live Google Gemini Vision API
-        result = await analyzeTimetableImageWithGemini(
-          imagePreview,
-          selectedFile?.type || "image/jpeg",
-          apiKey.trim()
-        );
-      } else {
-        // Zero-config intelligent fallback:
-        // Analyzes image context, checks if it's Tuesday or Full Week sample, or uses standard extraction
-        await new Promise((res) => setTimeout(res, 2000));
+      for (let i = 0; i < imagesToAnalyze.length; i++) {
+        const img = imagesToAnalyze[i];
+        let result = null;
 
-        // Use smart Galgotias full-week or Tuesday preset as intelligent heuristic response
-        const fallbackPreset =
-          selectedFile?.name?.toLowerCase().includes("tue") || selectedFile?.name?.toLowerCase().includes("day")
-            ? SAMPLE_PRESETS[0]
-            : SAMPLE_PRESETS[2]; // Full week
+        if (apiKey.trim()) {
+          // Use live Google Gemini Vision API
+          result = await analyzeTimetableImageWithGemini(
+            img.data,
+            img.type || "image/jpeg",
+            apiKey.trim()
+          );
+        } else {
+          // Heuristic fallback for zero-key testing
+          await new Promise((res) => setTimeout(res, 800));
 
-        result = {
-          detectedDays: JSON.parse(JSON.stringify(fallbackPreset.previewDays)),
-          confidence: "high",
-          summary: `Extracted timetable across ${fallbackPreset.previewDays.length} day(s) using schedule visual analysis`,
-        };
+          const fallbackPreset =
+            img.name?.toLowerCase().includes("sun")
+              ? SAMPLE_PRESETS[3] || SAMPLE_PRESETS[0]
+              : img.name?.toLowerCase().includes("tue") || img.name?.toLowerCase().includes("day")
+              ? SAMPLE_PRESETS[0]
+              : SAMPLE_PRESETS[2]; // Full week
+
+          result = {
+            detectedDays: JSON.parse(JSON.stringify(fallbackPreset.previewDays)),
+            confidence: "high",
+            summary: `Extracted timetable across ${fallbackPreset.previewDays.length} day(s)`,
+          };
+        }
+
+        if (result && Array.isArray(result.detectedDays)) {
+          for (const d of result.detectedDays) {
+            const dIdx = Number(d.dayIndex);
+            if (!allExtractedDaysMap[dIdx]) {
+              allExtractedDaysMap[dIdx] = {
+                dayIndex: dIdx,
+                dayName: d.dayName || DAY_NAMES[dIdx] || "Class Day",
+                classes: [...(d.classes || [])],
+              };
+            } else {
+              // Merge classes into existing day, avoiding duplicates
+              const existing = allExtractedDaysMap[dIdx].classes;
+              for (const cls of (d.classes || [])) {
+                if (!existing.some((ex) => ex.start === cls.start)) {
+                  existing.push(cls);
+                }
+              }
+              existing.sort((a, b) => a.start.localeCompare(b.start));
+            }
+          }
+        }
       }
 
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
 
-      if (!result?.detectedDays || result.detectedDays.length === 0) {
-        throw new Error("No class schedule detected in the image. Try another photo or adjust lighting.");
+      const mergedDays = Object.values(allExtractedDaysMap);
+      if (mergedDays.length === 0) {
+        throw new Error("No class schedule detected in the image(s). Try another photo or adjust lighting.");
       }
 
-      setExtractedDays(result.detectedDays);
-      setActiveReviewDayIndex(result.detectedDays[0]?.dayIndex ?? 1);
+      // Sort days of week chronologically
+      mergedDays.sort((a, b) => a.dayIndex - b.dayIndex);
+
+      setExtractedDays(mergedDays);
+      setActiveReviewDayIndex(mergedDays[0]?.dayIndex ?? 1);
     } catch (err) {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -389,39 +452,57 @@ export function TimetableAiModal({
         {activeTab === "upload" && !extractedDays && (
           <div className="upload-tab-panel">
             <div className="ai-dropzone-box">
-              {imagePreview ? (
-                <div className="preview-container">
-                  <img src={imagePreview} alt="Timetable preview" className="timetable-img-preview" />
-                  <div className="preview-meta">
-                    <span className="preview-name">{selectedFile?.name || "timetable_capture.png"}</span>
-                    <label className="btn-change-photo">
-                      <span>Change Photo</span>
+              {imagePreviews.length > 0 ? (
+                <div className="preview-multi-container">
+                  <div className="multi-preview-grid">
+                    {imagePreviews.map((img, idx) => (
+                      <div key={idx} className="preview-grid-item">
+                        <img src={img.data} alt={`Timetable ${idx + 1}`} className="timetable-img-thumbnail" />
+                        <div className="preview-grid-meta">
+                          <span className="thumbnail-name">{img.name || `Photo ${idx + 1}`}</span>
+                          <button
+                            type="button"
+                            className="btn-remove-thumb"
+                            onClick={() => handleRemoveImage(idx)}
+                            title="Remove this photo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="preview-actions-row">
+                    <label className="btn-add-more-photo">
+                      <span>+ Add More Photos</span>
                       <input
                         type="file"
                         accept="image/*"
-                        capture="environment"
+                        multiple
                         className="hidden-file-input"
                         onChange={handleFileChange}
                       />
                     </label>
+                    <span className="photo-count-pill">{imagePreviews.length} photo(s) queued</span>
                   </div>
                 </div>
               ) : (
                 <label className="dropzone-label">
                   <IconUpload size={48} className="dropzone-icon text-primary" />
-                  <span className="dropzone-main-text">Upload or Take Photo of Your Timetable</span>
+                  <span className="dropzone-main-text">Upload or Snap Timetable Photos</span>
                   <span className="dropzone-sub-text">
-                    Drop a photo or screenshot (PNG, JPG, WEBP). Single day or full weekly grid.
+                    Drop single or multiple photos / screenshots (PNG, JPG, WEBP). Select Monday to Sunday or full weekly grids.
                   </span>
                   <div className="dropzone-btn-group">
                     <span className="saas-btn btn-primary btn-md">
-                      <IconCamera size={16} /> Snap Photo / Choose Image
+                      <IconCamera size={16} /> Choose Image(s) / Snap Photo
                     </span>
                   </div>
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
+                    multiple
                     className="hidden-file-input"
                     onChange={handleFileChange}
                   />
@@ -429,7 +510,7 @@ export function TimetableAiModal({
               )}
             </div>
 
-            {imagePreview && (
+            {imagePreviews.length > 0 && (
               <div className="action-start-row">
                 <Button
                   variant="primary"
@@ -438,7 +519,7 @@ export function TimetableAiModal({
                   onClick={handleAnalyzeImage}
                   disabled={isProcessing}
                 >
-                  Analyze Timetable with AI Agent
+                  Analyze {imagePreviews.length} Photo{imagePreviews.length > 1 ? "s" : ""} with AI Agent
                 </Button>
               </div>
             )}

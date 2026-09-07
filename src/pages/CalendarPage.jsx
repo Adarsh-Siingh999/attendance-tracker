@@ -10,6 +10,8 @@ import {
   isWeekend,
   isSemesterActive,
   isNonInstructionalDay,
+  isSpecialInstructionalDay,
+  getSpecialInstructionalDay,
 } from "../utils/academicCalendarUtils.js";
 
 const MONTHS = [
@@ -40,11 +42,13 @@ export function CalendarPage() {
     attendanceRecords,
     markAttendance,
     clearDateAttendance,
+    markDateAsInstructional,
+    unmarkDateAsInstructional,
     activeSemester,
     overall,
   } = useApp();
 
-  const liveStart = activeSemester?.liveAttendanceStart || "2026-09-01";
+  const liveStart = activeSemester?.liveAttendanceStart || null;
 
   const [currentDate, setCurrentDate] = useState(() => {
     if (calendar?.startDate) {
@@ -56,6 +60,7 @@ export function CalendarPage() {
 
   const [selectedDate, setSelectedDate] = useState(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isInstructionalModalOpen, setIsInstructionalModalOpen] = useState(false);
 
   // New Event Form State
   const [eventType, setEventType] = useState("holiday");
@@ -63,6 +68,10 @@ export function CalendarPage() {
   const [eventDate, setEventDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
   const [countsAsClass, setCountsAsClass] = useState(false);
+
+  // Instructional Override Form State
+  const [instructionalScheduleDay, setInstructionalScheduleDay] = useState("");
+  const [instructionalNote, setInstructionalNote] = useState("Working Day / Extra Classes");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -89,12 +98,13 @@ export function CalendarPage() {
   };
 
   const getDayStatus = (dateStr) => {
+    if (isSpecialInstructionalDay(dateStr, calendar?.specialInstructionalDays)) return "class";
     if (!isSemesterActive(dateStr, calendar)) return "outside-semester";
     if (getHoliday(dateStr, calendar?.holidays)) return "holiday";
     if (isNonInstructionalDay(dateStr, calendar?.nonInstructionalDays)) return "non-instructional";
     const exam = getExamForDate(dateStr, calendar?.examinations);
     if (exam) return exam.countsAsClass ? "exam-class" : "exam";
-    if (isWeekend(dateStr, calendar?.weekends)) return "weekend";
+    if (isWeekend(dateStr, calendar?.weekends, timetable)) return "weekend";
 
     const classes = getClassesForDate(dateStr, { calendar, timetable });
     if (classes.length > 0) return "class";
@@ -111,6 +121,17 @@ export function CalendarPage() {
       updated = [...currentList, dateStr];
     }
     saveCalendar({ ...calendar, nonInstructionalDays: updated });
+  };
+
+  const handleSaveInstructionalDay = (e) => {
+    e.preventDefault();
+    if (!selectedDate) return;
+    markDateAsInstructional(
+      selectedDate,
+      instructionalScheduleDay !== "" ? Number(instructionalScheduleDay) : null,
+      instructionalNote.trim() || "Working Day / Extra Classes"
+    );
+    setIsInstructionalModalOpen(false);
   };
 
   const handleSaveCustomEvent = (e) => {
@@ -143,8 +164,9 @@ export function CalendarPage() {
   const selectedRecords = selectedDate ? attendanceRecords[selectedDate] || {} : {};
   const selectedHoliday = selectedDate ? getHoliday(selectedDate, calendar?.holidays) : null;
   const selectedExam = selectedDate ? getExamForDate(selectedDate, calendar?.examinations) : null;
-  const selectedWeekend = selectedDate ? isWeekend(selectedDate, calendar?.weekends) : false;
+  const selectedWeekend = selectedDate ? isWeekend(selectedDate, calendar?.weekends, timetable) : false;
   const selectedNonInst = selectedDate ? isNonInstructionalDay(selectedDate, calendar?.nonInstructionalDays) : false;
+  const selectedSpecialInst = selectedDate ? getSpecialInstructionalDay(selectedDate, calendar?.specialInstructionalDays) : null;
 
   return (
     <div className="page-container calendar-page">
@@ -175,8 +197,8 @@ export function CalendarPage() {
             </button>
           </div>
 
-          {/* AUGUST BASELINE VS SEPTEMBER LIVE TRACKING BANNER */}
-          {month === 7 && year === 2026 && (
+          {/* LEGACY SEMESTER V BASELINE BANNER */}
+          {activeSemester?.id === "sem-5-2026" && month === 7 && year === 2026 && (
             <div className="cal-version-strip baseline">
               <div className="version-strip-badge">📌 August Baseline Period</div>
               <div className="version-strip-text">
@@ -185,7 +207,7 @@ export function CalendarPage() {
             </div>
           )}
 
-          {month >= 8 && year === 2026 && (
+          {activeSemester?.id === "sem-5-2026" && month >= 8 && year === 2026 && (
             <div className="cal-version-strip live">
               <div className="version-strip-badge">⚡ Live Tracking Active</div>
               <div className="version-strip-text">
@@ -217,6 +239,7 @@ export function CalendarPage() {
 
               const holiday = getHoliday(dateStr, calendar?.holidays);
               const exam = getExamForDate(dateStr, calendar?.examinations);
+              const isSpecialInst = isSpecialInstructionalDay(dateStr, calendar?.specialInstructionalDays);
 
               return (
                 <button
@@ -227,6 +250,7 @@ export function CalendarPage() {
                 >
                   <strong className="day-number">{day}</strong>
                   <div className="day-cell-meta">
+                    {isSpecialInst && <span className="cell-tag tag-instructional">Working Day</span>}
                     {holiday && <span className="cell-tag tag-holiday">Holiday</span>}
                     {exam && (
                       <span className="cell-tag tag-exam">
@@ -265,8 +289,8 @@ export function CalendarPage() {
                 </button>
               </div>
 
-              {/* TIMETABLE VERSION & BASELINE STATUS BANNER */}
-              {selectedDate && selectedDate < liveStart && (
+              {/* TIMETABLE VERSION & BASELINE STATUS BANNER (ONLY FOR LEGACY SEMESTER V) */}
+              {selectedDate && activeSemester?.id === "sem-5-2026" && liveStart && selectedDate < liveStart && (
                 <div className="inspector-banner baseline-banner">
                   <div className="banner-tag-row">
                     <span className="period-pill baseline">📌 August Baseline Period</span>
@@ -278,7 +302,7 @@ export function CalendarPage() {
                 </div>
               )}
 
-              {selectedDate && selectedDate >= liveStart && (
+              {selectedDate && activeSemester?.id === "sem-5-2026" && liveStart && selectedDate >= liveStart && (
                 <div className="inspector-banner live-tracking-banner">
                   <div className="banner-tag-row">
                     <span className="period-pill live">⚡ Live Attendance Active</span>
@@ -290,7 +314,22 @@ export function CalendarPage() {
                 </div>
               )}
 
-              {selectedHoliday && (
+              {/* SPECIAL INSTRUCTIONAL DAY OVERRIDE BANNER */}
+              {selectedSpecialInst && (
+                <div className="inspector-banner instructional-banner">
+                  <div className="banner-tag-row">
+                    <span className="period-pill live">✨ Special Instructional Day</span>
+                    {selectedSpecialInst.scheduleDay !== undefined && selectedSpecialInst.scheduleDay !== null && (
+                      <span className="timetable-version-tag">Following {WEEKDAYS[selectedSpecialInst.scheduleDay]} Schedule</span>
+                    )}
+                  </div>
+                  <p className="period-subtext">
+                    {selectedSpecialInst.note || "Explicitly designated as a working instructional day."} Scheduled classes are active and count toward live attendance.
+                  </p>
+                </div>
+              )}
+
+              {selectedHoliday && !selectedSpecialInst && (
                 <div className="inspector-banner holiday-banner">
                   <strong>Holiday:</strong> {selectedHoliday.name}
                 </div>
@@ -303,25 +342,42 @@ export function CalendarPage() {
                 </div>
               )}
 
-              {selectedWeekend && !selectedHoliday && !selectedExam && (
+              {selectedWeekend && !selectedHoliday && !selectedExam && !selectedSpecialInst && (
                 <div className="inspector-banner weekend-banner">
                   Academic Weekend (No lectures scheduled)
                 </div>
               )}
 
-              {selectedNonInst && (
+              {selectedNonInst && !selectedSpecialInst && (
                 <div className="inspector-banner noninst-banner">
                   Marked as Non-Instructional Day (No classes held)
                 </div>
               )}
 
               <div className="inspector-quick-actions">
+                {selectedSpecialInst ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => unmarkDateAsInstructional(selectedDate)}
+                  >
+                    ↩ Remove Working Day Status
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsInstructionalModalOpen(true)}
+                  >
+                    ✨ Mark as Instructional Day
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => toggleNonInstructional(selectedDate)}
                 >
-                  {selectedNonInst ? "Restore Instructional Day" : "Mark as Non-Instructional"}
+                  {selectedNonInst ? "Restore Scheduled Classes" : "Mark as Non-Instructional"}
                 </Button>
               </div>
 
@@ -464,6 +520,59 @@ export function CalendarPage() {
             </Button>
             <Button variant="primary" type="submit">
               Save Event
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MARK AS INSTRUCTIONAL DAY MODAL */}
+      <Modal
+        isOpen={isInstructionalModalOpen}
+        onClose={() => setIsInstructionalModalOpen(false)}
+        title="Mark Day as Instructional"
+        maxWidth="480px"
+      >
+        <form onSubmit={handleSaveInstructionalDay} className="modal-form">
+          <p className="modal-info-text">
+            Designate <strong>{selectedDate ? formatDisplayDate(selectedDate) : "this date"}</strong> as a working instructional day (e.g. Working Sunday or extra lectures). Classes will be activated and open for attendance tracking.
+          </p>
+
+          <div className="form-group">
+            <label className="form-label">Timetable Schedule to Follow</label>
+            <select
+              className="form-input"
+              value={instructionalScheduleDay}
+              onChange={(e) => setInstructionalScheduleDay(e.target.value)}
+            >
+              <option value="">Default for this day of week (uses day's timetable)</option>
+              <option value="0">Sunday Timetable (Day 0)</option>
+              <option value="1">Monday Timetable (Day 1)</option>
+              <option value="2">Tuesday Timetable (Day 2)</option>
+              <option value="3">Wednesday Timetable (Day 3)</option>
+              <option value="4">Thursday Timetable (Day 4)</option>
+              <option value="5">Friday Timetable (Day 5)</option>
+              <option value="6">Saturday Timetable (Day 6)</option>
+            </select>
+            <span className="field-hint">Select an alternative weekday if running another day's schedule (e.g. follow Monday schedule on a Sunday).</span>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Reason / Description</label>
+            <input
+              type="text"
+              className="form-input"
+              value={instructionalNote}
+              onChange={(e) => setInstructionalNote(e.target.value)}
+              placeholder="e.g. Working Sunday / Make-up lectures"
+            />
+          </div>
+
+          <div className="modal-actions-row">
+            <Button variant="secondary" onClick={() => setIsInstructionalModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit">
+              Mark as Instructional
             </Button>
           </div>
         </form>

@@ -289,6 +289,66 @@ const sepDayClasses = getClassesForDate("2026-09-08", {
 });
 assert(sepDayClasses.length === 8, "September 8 (Tuesday) has 8 classes from September Timetable");
 
+// 17. Sunday Classes, Weekend Protection & Special Instructional Days
+// Sunday date: 2026-09-13 is a Sunday (day 0)
+const sundayTimetable = {
+  0: [
+    { start: "09:30", end: "10:30", subject: "Artificial Intelligence", code: "AI301", type: "Lecture" },
+    { start: "10:30", end: "11:30", subject: "Cloud Computing", code: "CS601", type: "Lecture" },
+  ],
+};
+
+// When timetable has Sunday classes, Sunday is NOT blocked as weekend
+const sundayClasses = getClassesForDate("2026-09-13", {
+  calendar: { weekends: [0, 6] },
+  timetable: sundayTimetable,
+  ignoreSemesterRange: true,
+});
+assert(sundayClasses.length === 2, "Sunday classes render and are not blocked as weekend when present in timetable");
+assert(sundayClasses[0].code === "AI301", "First Sunday class is Artificial Intelligence");
+
+// If timetable has NO classes on Sunday and weekends is configured, it is considered a weekend
+const sundayWithoutClasses = getClassesForDate("2026-09-13", {
+  calendar: { weekends: [0, 6] },
+  timetable: { 1: [{ subject: "Monday Only" }] },
+  ignoreSemesterRange: true,
+});
+assert(sundayWithoutClasses.length === 0, "Sunday with no timetable classes resolves to 0 classes when weekend configured");
+
+// Special Instructional Day override: Marking a holiday as instructional day forces classes to render
+const holidayDate = "2026-10-02"; // Gandhi Jayanti holiday
+const classesOnHolidayWithoutOverride = getClassesForDate(holidayDate, {
+  calendar: { holidays: [{ date: "2026-10-02", name: "Holiday" }] },
+  timetable: { 5: [{ subject: "Friday Class", code: "CS101" }] }, // Oct 2, 2026 is a Friday (day 5)
+  ignoreSemesterRange: true,
+});
+assert(classesOnHolidayWithoutOverride.length === 0, "Normal holiday blocks classes");
+
+const classesOnHolidayWithOverride = getClassesForDate(holidayDate, {
+  calendar: {
+    holidays: [{ date: "2026-10-02", name: "Holiday" }],
+    specialInstructionalDays: [{ date: "2026-10-02", note: "Special Make-up Day" }],
+  },
+  timetable: { 5: [{ subject: "Friday Class", code: "CS101" }] },
+  ignoreSemesterRange: true,
+});
+assert(classesOnHolidayWithOverride.length === 1, "Special Instructional Day override unblocks holiday and returns classes");
+assert(classesOnHolidayWithOverride[0].code === "CS101", "Returned class matches timetable");
+
+// Special Instructional Day with scheduleDay override (e.g. run Monday routine on a Sunday)
+const sundayWithMondaySchedule = getClassesForDate("2026-09-13", {
+  calendar: {
+    weekends: [0, 6],
+    specialInstructionalDays: [{ date: "2026-09-13", scheduleDay: 1, note: "Working Sunday (Monday Routine)" }],
+  },
+  timetable: {
+    1: [{ subject: "Monday Lecture", code: "MON101" }],
+  },
+  ignoreSemesterRange: true,
+});
+assert(sundayWithMondaySchedule.length === 1, "Special instructional day can run an alternative weekday timetable");
+assert(sundayWithMondaySchedule[0].code === "MON101", "Runs Monday lecture on Sunday");
+
 console.log(`\n=== TEST RESULTS: ${passed}/${total} PASSED ===\n`);
 if (passed !== total && typeof process !== "undefined") {
   process.exit(1);
