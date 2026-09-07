@@ -578,7 +578,7 @@ export const storageService = {
 
   saveSemester(semesterData) {
     const semesters = this.getSemesters();
-    const id = semesterData.id || `sem-${Date.now()}`;
+    const id = semesterData.id || `sem-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const semester = {
       id,
       name: semesterData.name.trim(),
@@ -631,7 +631,7 @@ export const storageService = {
 
   saveSubject(subjectData) {
     const all = safeGet(this.uKey("subjects"), SEED_SUBJECTS);
-    const id = subjectData.id || `sub-${Date.now()}`;
+    const id = subjectData.id || `sub-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const subject = {
       id,
       semesterId: subjectData.semesterId || this.getActiveSemesterId(),
