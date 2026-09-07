@@ -6,28 +6,53 @@ import { IconCheck, IconCalendar } from "./Icons.jsx";
 import { formatDate } from "../../utils/academicCalendarUtils.js";
 
 export function MidSemesterSetupModal({ isOpen, onClose }) {
-  const { subjects, saveSubject, activeSemester } = useApp();
+  const { subjects, saveSubject, activeSemester, baselineDate, setBaselineDate } = useApp();
 
-  const [cutoffDate, setCutoffDate] = useState(formatDate(new Date()));
+  const [cutoffDate, setCutoffDate] = useState(baselineDate || formatDate(new Date()));
   const [counts, setCounts] = useState(() => {
     const initial = {};
     subjects.forEach((s) => {
-      initial[s.id] = {
-        attended: s.attended || 0,
-        conducted: s.conducted || 0,
-      };
+      // If subject has components, keep component level map, otherwise default
+      const compMap = {};
+      if (s.components && Object.keys(s.components).length > 0) {
+        for (const [cName, cVal] of Object.entries(s.components)) {
+          compMap[cName] = {
+            attended: cVal.attended || 0,
+            conducted: cVal.conducted || 0,
+          };
+        }
+      } else {
+        compMap["Lecture"] = {
+          attended: s.attended || 0,
+          conducted: s.conducted || 0,
+        };
+      }
+      initial[s.id] = compMap;
     });
     return initial;
   });
   const [isSaved, setIsSaved] = useState(false);
 
-  const handleCountChange = (subId, field, value) => {
+  const handleComponentCountChange = (subId, compName, field, value) => {
     const num = Math.max(0, parseInt(value, 10) || 0);
     setCounts((prev) => ({
       ...prev,
       [subId]: {
         ...prev[subId],
-        [field]: num,
+        [compName]: {
+          ...prev[subId]?.[compName],
+          [field]: num,
+        },
+      },
+    }));
+  };
+
+  const handleAddComponent = (subId, compType) => {
+    setCounts((prev) => ({
+      ...prev,
+      [subId]: {
+        ...prev[subId],
+        [compType]: { attended: 0, conducted: 0 },
       },
     }));
   };
@@ -35,25 +60,27 @@ export function MidSemesterSetupModal({ isOpen, onClose }) {
   const handleSaveBaseline = (e) => {
     e.preventDefault();
 
+    // 1. Update each subject with its component balances (PP, PR, Lecture, etc.)
     subjects.forEach((sub) => {
-      const subCounts = counts[sub.id] || { attended: 0, conducted: 0 };
-      const attended = Math.min(subCounts.attended, subCounts.conducted);
-      const conducted = subCounts.conducted;
+      const subCompCounts = counts[sub.id] || {};
+      const updatedComponents = {};
 
-      // Update baseline on the primary lecture or first component
-      const componentKey = Object.keys(sub.components || {})[0] || "Lecture";
+      for (const [compName, cVal] of Object.entries(subCompCounts)) {
+        const attended = Math.min(cVal.attended || 0, cVal.conducted || 0);
+        const conducted = cVal.conducted || 0;
+        updatedComponents[compName] = { attended, conducted };
+      }
 
       saveSubject({
         ...sub,
-        components: {
-          ...sub.components,
-          [componentKey]: {
-            attended,
-            conducted,
-          },
-        },
+        components: updatedComponents,
       });
     });
+
+    // 2. Set the semester baseline cutoff date to lock marking on or before this date
+    if (setBaselineDate) {
+      setBaselineDate(cutoffDate);
+    }
 
     setIsSaved(true);
     setTimeout(() => {
@@ -103,7 +130,7 @@ export function MidSemesterSetupModal({ isOpen, onClose }) {
             <table className="opening-counts-table">
               <thead>
                 <tr>
-                  <th>Course Name</th>
+                  <th>Course & Component (PP / PR)</th>
                   <th style={{ width: "120px" }}>Attended</th>
                   <th style={{ width: "120px" }}>Conducted</th>
                   <th style={{ width: "90px" }}>Current %</th>
@@ -111,41 +138,50 @@ export function MidSemesterSetupModal({ isOpen, onClose }) {
               </thead>
               <tbody>
                 {subjects.map((sub) => {
-                  const current = counts[sub.id] || { attended: 0, conducted: 0 };
-                  const pct = current.conducted > 0 ? (current.attended / current.conducted) * 100 : 0;
-                  const isSafe = pct >= (activeSemester?.eligibilityThreshold || 75);
+                  const compEntries = Object.entries(counts[sub.id] || { Lecture: { attended: 0, conducted: 0 } });
+                  return compEntries.map(([compName, compVal]) => {
+                    const attended = compVal?.attended || 0;
+                    const conducted = compVal?.conducted || 0;
+                    const pct = conducted > 0 ? (attended / conducted) * 100 : 0;
+                    const isSafe = pct >= (activeSemester?.eligibilityThreshold || 75);
 
-                  return (
-                    <tr key={sub.id}>
-                      <td>
-                        <strong>{sub.name}</strong>
-                        {sub.code && <span className="sub-code-sub">{sub.code}</span>}
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          min="0"
-                          className="form-input text-center"
-                          value={current.attended}
-                          onChange={(e) => handleCountChange(sub.id, "attended", e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          min="0"
-                          className="form-input text-center"
-                          value={current.conducted}
-                          onChange={(e) => handleCountChange(sub.id, "conducted", e.target.value)}
-                        />
-                      </td>
-                      <td className="text-center font-bold">
-                        <span className={isSafe ? "text-success" : "text-danger"}>
-                          {current.conducted > 0 ? `${pct.toFixed(1)}%` : "—"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
+                    return (
+                      <tr key={`${sub.id}-${compName}`}>
+                        <td>
+                          <div className="sub-table-cell">
+                            <strong>{sub.name}</strong>
+                            <div className="sub-comp-tag-row">
+                              <span className="comp-type-pill">{compName}</span>
+                              {sub.code && <span className="sub-code-sub">{sub.code}</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            className="form-input text-center"
+                            value={attended}
+                            onChange={(e) => handleComponentCountChange(sub.id, compName, "attended", e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            className="form-input text-center"
+                            value={conducted}
+                            onChange={(e) => handleComponentCountChange(sub.id, compName, "conducted", e.target.value)}
+                          />
+                        </td>
+                        <td className="text-center font-bold">
+                          <span className={isSafe ? "text-success" : "text-danger"}>
+                            {conducted > 0 ? `${pct.toFixed(1)}%` : "—"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  });
                 })}
               </tbody>
             </table>

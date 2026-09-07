@@ -154,6 +154,24 @@ export function AppProvider({ children }) {
     return [];
   }, [timetableData]);
 
+  const baselineDate = useMemo(() => {
+    if (activeSemester?.baselineDate) return activeSemester.baselineDate;
+    if (activeSemester?.liveAttendanceStart) {
+      const d = new Date(`${activeSemester.liveAttendanceStart}T00:00:00`);
+      d.setDate(d.getDate() - 1);
+      return formatDate(d);
+    }
+    if (activeSemester?.id === "sem-5-2026") return "2026-08-31";
+    return null;
+  }, [activeSemester]);
+
+  const isDateInBaseline = (dateStr) => {
+    if (!dateStr) return false;
+    if (baselineDate && dateStr <= baselineDate) return true;
+    if (activeSemester?.liveAttendanceStart && dateStr < activeSemester.liveAttendanceStart) return true;
+    return false;
+  };
+
   // Compute live recorded attendance totals from active calendar + active records
   // Prioritizes immutable class snapshots stored directly in attendance records
   const recordedAttendance = useMemo(() => {
@@ -161,14 +179,11 @@ export function AppProvider({ children }) {
     let present = 0;
     let absent = 0;
 
-    // Only apply liveStart if explicitly defined for a legacy pre-tallied baseline semester;
-    // for all new users and new semesters, attendance counts from any date marked.
-    const liveStart = activeSemester?.liveAttendanceStart || null;
-
     for (const [date, records] of Object.entries(attendanceRecords || {})) {
       if (!records || typeof records !== "object") continue;
 
-      if (liveStart && date < liveStart) continue;
+      // Skip dates in baseline to prevent double-counting with subject baseline PP/PR
+      if (isDateInBaseline(date)) continue;
 
       const classes = getClassesForDate(date, { calendar, timetable: timetableData, ignoreSemesterRange: true });
 
@@ -422,6 +437,12 @@ export function AppProvider({ children }) {
 
   // Attendance marking with snapshotting
   const markAttendance = (date, classIndex, status, customClassSnapshot = null) => {
+    // Attendance marking is locked on dates covered by the baseline data to prevent double-counting
+    if (isDateInBaseline(date)) {
+      console.warn(`[markAttendance] Date ${date} is covered by the baseline attendance up to ${baselineDate}. Marking is locked.`);
+      return attendanceRecords;
+    }
+
     let snapshot = customClassSnapshot;
     if (!snapshot) {
       const classes = getClassesForDate(date, { calendar, timetable: timetableData, ignoreSemesterRange: true });
@@ -429,6 +450,21 @@ export function AppProvider({ children }) {
     }
     const updated = storageService.setAttendanceStatus(activeSemesterId, date, classIndex, status, snapshot);
     setAttendanceRecords({ ...updated });
+    return updated;
+  };
+
+  const setBaselineDate = (newBaselineDate) => {
+    if (!activeSemester) return null;
+    const nextDay = new Date(`${newBaselineDate}T00:00:00`);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const liveStartStr = formatDate(nextDay);
+
+    const updated = {
+      ...activeSemester,
+      baselineDate: newBaselineDate,
+      liveAttendanceStart: liveStartStr,
+    };
+    saveSemester(updated);
     return updated;
   };
 
@@ -543,6 +579,9 @@ export function AppProvider({ children }) {
     saveTimetable,
     calendar,
     saveCalendar,
+    baselineDate,
+    isDateInBaseline,
+    setBaselineDate,
     markDateAsInstructional,
     unmarkDateAsInstructional,
     attendanceRecords,

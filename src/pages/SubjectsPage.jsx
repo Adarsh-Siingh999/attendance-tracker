@@ -9,11 +9,22 @@ import { getSubjectStatus } from "../utils/attendanceCalculations.js";
 import { MidSemesterSetupModal } from "../components/common/MidSemesterSetupModal.jsx";
 
 export function SubjectsPage() {
-  const { subjects, subjectForecasts, saveSubject, deleteSubject, threshold, criticalThreshold } = useApp();
+  const {
+    subjects,
+    subjectForecasts,
+    saveSubject,
+    deleteSubject,
+    threshold,
+    criticalThreshold,
+    baselineDate,
+    setBaselineDate,
+  } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMidSemModalOpen, setIsMidSemModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(null);
+  const [isEditingBaseline, setIsEditingBaseline] = useState(false);
+  const [newBaselineDate, setNewBaselineDate] = useState(baselineDate || "");
 
   // Form State
   const [name, setName] = useState("");
@@ -93,6 +104,14 @@ export function SubjectsPage() {
     setIsModalOpen(false);
   };
 
+  const handleSaveBaselineDate = (e) => {
+    e.preventDefault();
+    if (newBaselineDate) {
+      setBaselineDate(newBaselineDate);
+    }
+    setIsEditingBaseline(false);
+  };
+
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this subject? All historical records associated with it will be removed.")) {
       deleteSubject(id);
@@ -115,6 +134,56 @@ export function SubjectsPage() {
           <Button variant="primary" icon={<IconPlus size={16} />} onClick={openAddModal}>
             Add Subject
           </Button>
+        </div>
+      </div>
+
+      {/* BASELINE ATTENDANCE STATUS BANNER */}
+      <div className="subjects-baseline-banner">
+        <div className="baseline-banner-icon">
+          <span>🔒</span>
+        </div>
+        <div className="baseline-banner-info">
+          <div className="baseline-banner-title-row">
+            <h4 className="baseline-banner-title">Opening ERP Attendance Baseline</h4>
+            <span className="baseline-date-badge">
+              {baselineDate ? `Locked through ${baselineDate}` : "Active Tracking from Day 1"}
+            </span>
+          </div>
+          <p className="baseline-banner-desc">
+            Attended and conducted numbers entered below for your components (e.g. PP, PR, Lecture, Lab) represent your verified ERP baseline up to <strong>{baselineDate || "start of semester"}</strong>. Daily attendance marking in the calendar is strictly locked on or before this date to prevent duplicate counting.
+          </p>
+          {isEditingBaseline && (
+            <form onSubmit={handleSaveBaselineDate} className="baseline-date-edit-form">
+              <label className="baseline-date-label">Cut-off Date:</label>
+              <input
+                type="date"
+                className="form-input baseline-date-input"
+                value={newBaselineDate}
+                onChange={(e) => setNewBaselineDate(e.target.value)}
+                required
+              />
+              <Button variant="primary" size="sm" type="submit">
+                Save Date
+              </Button>
+              <Button variant="ghost" size="sm" type="button" onClick={() => setIsEditingBaseline(false)}>
+                Cancel
+              </Button>
+            </form>
+          )}
+        </div>
+        <div className="baseline-banner-actions">
+          {!isEditingBaseline && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setNewBaselineDate(baselineDate || "");
+                setIsEditingBaseline(true);
+              }}
+            >
+              Change Cut-off Date
+            </Button>
+          )}
         </div>
       </div>
 
@@ -361,14 +430,32 @@ export function SubjectsPage() {
 
           <div className="form-group">
             <div className="components-header-row">
-              <label className="form-label mb-0">Components / Class Types</label>
+              <label className="form-label mb-0">Components / Class Types (PP, PR, Lecture, Lab)</label>
               <Button variant="ghost" size="sm" icon={<IconPlus size={14} />} onClick={handleAddComponent}>
                 Add Component
               </Button>
             </div>
-            <p className="form-help-text">
-              Configure components like Lecture, Lab, Tutorial, PP, or PR, along with historical attended/conducted counts.
-            </p>
+            
+            <div className="baseline-modal-hint-box">
+              <span className="hint-icon">📌</span>
+              <p>
+                <strong>Baseline Attendance:</strong> Numbers entered below constitute your ERP baseline up to <strong>{baselineDate || "the start of the semester"}</strong>. Daily attendance marking in the calendar is locked on or before this date to prevent double-counting.
+              </p>
+            </div>
+
+            <div className="quick-comp-types-row">
+              <span className="quick-comp-lbl">Quick Add Component:</span>
+              {["PP", "PR", "Lecture", "Lab", "Tutorial"].map((cType) => (
+                <button
+                  key={cType}
+                  type="button"
+                  className="quick-comp-btn"
+                  onClick={() => setComponents([...components, { type: cType, attended: 0, conducted: 0 }])}
+                >
+                  + {cType}
+                </button>
+              ))}
+            </div>
 
             <div className="components-editor-list">
               {components.map((comp, idx) => (

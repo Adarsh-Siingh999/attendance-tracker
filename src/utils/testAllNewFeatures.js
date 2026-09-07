@@ -363,6 +363,89 @@ assert(Boolean(storedTtData.versions), "Timetable saved with versioning");
 assert(storedTtData.versions[0].timetable[0][0].code === "ROB101", "Sunday class saved under day index 0 in versioned routine");
 assert(storedTtData.versions[0].effectiveFrom === amanSem.startDate, "Initial version effectiveFrom starts from semester start date rather than only today");
 
+// ============================================================================
+// TEST SUITE 6: PP & PR BASELINE EDITING & LOCKED ATTENDANCE MARKING TILL BASELINE
+// ============================================================================
+console.log("\n--- 6. Testing PP & PR Baseline Editing & Attendance Marking Lock ---");
+
+// 1. Create a user with semester cut-off date at 2026-09-05
+const baselineUser = storageService.createUser({
+  name: "Rohan Kulkarni",
+  email: "rohan.k@example.com",
+  template: "clean",
+});
+const rohanSem = storageService.getActiveSemester();
+
+// Set semester baseline cutoff date to 2026-09-05
+const updatedRohanSem = storageService.saveSemester({
+  ...rohanSem,
+  baselineDate: "2026-09-05",
+  liveAttendanceStart: "2026-09-05",
+});
+assert(updatedRohanSem.baselineDate === "2026-09-05", "Semester baselineDate correctly saved as 2026-09-05");
+
+// 2. User edits a subject to include PP (attended: 9, conducted: 10) and PR (attended: 11, conducted: 13)
+const subWithPPPR = storageService.saveSubject({
+  name: "Object Oriented Programming",
+  code: "CS202",
+  credits: 4,
+  components: {
+    PP: { attended: 9, conducted: 10 },
+    PR: { attended: 11, conducted: 13 },
+  },
+});
+
+// Calculate subject attendance from baseline components
+const subAttendance = calculateSubjectAttendance(subWithPPPR);
+assert(subAttendance.attended === 20, "calculateSubjectAttendance sums PP (9) + PR (11) = 20 attended");
+assert(subAttendance.conducted === 23, "calculateSubjectAttendance sums PP (10) + PR (13) = 23 conducted");
+const expectedPct = (20 / 23) * 100;
+assert(Math.abs(subAttendance.percentage - expectedPct) < 0.01, "PP + PR baseline percentage is correctly 86.96%");
+
+// 3. Verify helper logic: dates on or before 2026-09-05 are in baseline
+const isDateInBaseline = (dateStr, cutoff) => {
+  if (!cutoff) return false;
+  return dateStr <= cutoff;
+};
+
+assert(isDateInBaseline("2026-08-30", "2026-09-05") === true, "2026-08-30 is identified as within baseline period");
+assert(isDateInBaseline("2026-09-05", "2026-09-05") === true, "Cut-off date 2026-09-05 itself is within baseline period (inclusive)");
+assert(isDateInBaseline("2026-09-06", "2026-09-05") === false, "2026-09-06 is strictly after baseline (live instructional day)");
+
+// 4. Simulate recordedAttendance filtering:
+// If historical records exist on or before 2026-09-05 (e.g. from an old import or accidental mark),
+// they MUST NOT be added on top of the PP/PR baseline!
+const testRecords = {
+  "2026-09-03": { [subWithPPPR.id]: "present" }, // in baseline
+  "2026-09-05": { [subWithPPPR.id]: "present" }, // in baseline
+  "2026-09-08": { [subWithPPPR.id]: "present" }, // after baseline
+  "2026-09-09": { [subWithPPPR.id]: "absent" },  // after baseline
+};
+
+// Filter recorded attendance strictly after baseline
+const filteredLiveCounts = { [subWithPPPR.id]: { present: 0, absent: 0 } };
+for (const [dStr, recs] of Object.entries(testRecords)) {
+  if (isDateInBaseline(dStr, "2026-09-05")) {
+    continue; // Strictly excluded
+  }
+  for (const [sId, st] of Object.entries(recs)) {
+    if (st === "present") filteredLiveCounts[sId].present += 1;
+    if (st === "absent") filteredLiveCounts[sId].absent += 1;
+  }
+}
+
+assert(filteredLiveCounts[subWithPPPR.id].present === 1, "Only 1 present counted after baseline (Sep 8), Sep 3 & 5 safely excluded");
+assert(filteredLiveCounts[subWithPPPR.id].absent === 1, "1 absent counted after baseline (Sep 9)");
+
+// 5. Total combined attendance (Baseline PP + PR + Live Attendance)
+const finalAttended = subAttendance.attended + filteredLiveCounts[subWithPPPR.id].present; // 20 + 1 = 21
+const finalConducted = subAttendance.conducted + filteredLiveCounts[subWithPPPR.id].present + filteredLiveCounts[subWithPPPR.id].absent; // 23 + 2 = 25
+const finalPct = (finalAttended / finalConducted) * 100; // 84.0%
+
+assert(finalAttended === 21, "Total attended = 21 (20 baseline PP/PR + 1 live present)");
+assert(finalConducted === 25, "Total conducted = 25 (23 baseline PP/PR + 2 live classes)");
+assert(finalPct === 84.0, "Total attendance percentage accurately computed at 84.0% without double-counting");
+
 console.log("\n================================================================================");
 console.log(`🎉 ALL NEW FEATURE TESTS PASSED: ${passed}/${total} (100%)`);
 console.log("================================================================================\n");

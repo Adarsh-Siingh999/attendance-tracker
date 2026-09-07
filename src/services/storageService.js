@@ -588,6 +588,8 @@ export const storageService = {
       eligibilityThreshold: Number(semesterData.eligibilityThreshold) || 75,
       criticalThreshold: Number(semesterData.criticalThreshold) || 65,
       weekends: Array.isArray(semesterData.weekends) ? semesterData.weekends : [],
+      baselineDate: semesterData.baselineDate || null,
+      liveAttendanceStart: semesterData.liveAttendanceStart || null,
       isActive: Boolean(semesterData.isActive),
       isArchived: Boolean(semesterData.isArchived),
       updatedAt: new Date().toISOString(),

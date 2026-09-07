@@ -19,10 +19,13 @@ export function DashboardPage() {
     attendanceRecords,
     markAttendance,
     setActiveTab,
+    baselineDate,
+    isDateInBaseline,
   } = useApp();
 
   const isEligible = overall.percentage >= threshold;
   const todayStr = formatDate(new Date());
+  const isTodayInBaseline = isDateInBaseline ? isDateInBaseline(todayStr) : false;
 
   // Check today's schedule
   const todayHoliday = getHoliday(todayStr, calendar?.holidays);
@@ -135,11 +138,22 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="today-classes-list">
+            {isTodayInBaseline && (
+              <div className="dashboard-baseline-locked-banner">
+                <span className="locked-icon">🔒</span>
+                <div className="locked-text">
+                  <strong>Baseline Attendance Period (Locked)</strong>
+                  <p>
+                    Today ({todayStr}) is within your opening baseline period (up to {baselineDate}). Attendance up to this date is already accounted for in your subjects' baseline balances, so daily marking is locked to prevent double-counting.
+                  </p>
+                </div>
+              </div>
+            )}
             {todayClasses.map((item, index) => {
               const recordEntry = todayRecords[index];
               const status = typeof recordEntry === "object" ? recordEntry?.status : recordEntry || null;
               return (
-                <div key={index} className="today-class-card">
+                <div key={index} className={`today-class-card ${isTodayInBaseline ? "card-in-baseline" : ""}`}>
                   <div className="class-time-block">
                     <span className="time-start">{item.start}</span>
                     <span className="time-end">{item.end}</span>
@@ -159,21 +173,35 @@ export function DashboardPage() {
                   <div className="class-actions-block">
                     <button
                       type="button"
-                      className={`btn-mark mark-present ${status === "present" ? "active" : ""}`}
-                      onClick={() => markAttendance(todayStr, index, "present")}
-                      title={status === "present" ? "Marked as Attended (Click to unmark)" : "Mark as Present"}
+                      className={`btn-mark mark-present ${status === "present" ? "active" : ""} ${isTodayInBaseline ? "locked-disabled" : ""}`}
+                      onClick={() => !isTodayInBaseline && markAttendance(todayStr, index, "present")}
+                      disabled={isTodayInBaseline}
+                      title={
+                        isTodayInBaseline
+                          ? `Locked: Today is within baseline period (up to ${baselineDate})`
+                          : status === "present"
+                          ? "Marked as Attended (Click to unmark)"
+                          : "Mark as Present"
+                      }
                     >
                       <IconCheck size={14} />
-                      <span>{status === "present" ? "Attended ✓" : "Present"}</span>
+                      <span>{isTodayInBaseline ? "🔒 Baseline" : status === "present" ? "Attended ✓" : "Present"}</span>
                     </button>
                     <button
                       type="button"
-                      className={`btn-mark mark-absent ${status === "absent" ? "active" : ""}`}
-                      onClick={() => markAttendance(todayStr, index, "absent")}
-                      title={status === "absent" ? "Marked as Missed (Click to unmark)" : "Mark as Absent"}
+                      className={`btn-mark mark-absent ${status === "absent" ? "active" : ""} ${isTodayInBaseline ? "locked-disabled" : ""}`}
+                      onClick={() => !isTodayInBaseline && markAttendance(todayStr, index, "absent")}
+                      disabled={isTodayInBaseline}
+                      title={
+                        isTodayInBaseline
+                          ? `Locked: Today is within baseline period (up to ${baselineDate})`
+                          : status === "absent"
+                          ? "Marked as Missed (Click to unmark)"
+                          : "Mark as Absent"
+                      }
                     >
                       <IconX size={14} />
-                      <span>{status === "absent" ? "Missed ✗" : "Absent"}</span>
+                      <span>{isTodayInBaseline ? "🔒 Locked" : status === "absent" ? "Missed ✗" : "Absent"}</span>
                     </button>
                   </div>
                 </div>

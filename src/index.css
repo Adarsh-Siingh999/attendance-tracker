@@ -5536,3 +5536,250 @@ body {
     font-size: 16px !important;
   }
 }
+
+/* ==========================================================================
+   BASELINE ATTENDANCE & LOCKING STYLES
+   ========================================================================== */
+
+.subjects-baseline-banner {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(124, 58, 237, 0.04));
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: var(--radius-md, 12px);
+  padding: 16px 20px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.baseline-banner-icon {
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(37, 99, 235, 0.1);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.baseline-banner-info {
+  flex: 1;
+  min-width: 260px;
+}
+
+.baseline-banner-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.baseline-banner-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+}
+
+.baseline-date-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.baseline-banner-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary, #475569);
+  line-height: 1.45;
+}
+
+.baseline-date-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.baseline-date-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+}
+
+.baseline-date-input {
+  width: auto !important;
+  padding: 4px 10px !important;
+  font-size: 13px !important;
+}
+
+.baseline-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Modal Callouts & Quick Add Buttons */
+.baseline-modal-hint-box {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.baseline-modal-hint-box .hint-icon {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.baseline-modal-hint-box p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.quick-comp-types-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.quick-comp-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 4px;
+}
+
+.quick-comp-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-comp-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+/* Dashboard Locked Banner */
+.dashboard-baseline-locked-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fefce8;
+  border: 1px solid #fde047;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-baseline-locked-banner .locked-icon {
+  font-size: 20px;
+}
+
+.dashboard-baseline-locked-banner .locked-text strong {
+  display: block;
+  font-size: 13.5px;
+  color: #854d0e;
+  margin-bottom: 2px;
+}
+
+.dashboard-baseline-locked-banner .locked-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #a16207;
+  line-height: 1.35;
+}
+
+/* Calendar Locked Banner */
+.inspector-banner.baseline-locked-banner {
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  color: #854d0e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.baseline-locked-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #854d0e;
+  background: #fef9c3;
+  border: 1px solid #fde047;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Disabled & Locked Button Styles */
+.btn-mark.locked-disabled,
+.btn-att-pill.locked-disabled,
+button.locked-disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+}
+
+.btn-mark.locked-disabled:hover,
+.btn-att-pill.locked-disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.card-in-baseline {
+  background: #fafafa !important;
+  border-left: 3px solid #cbd5e1 !important;
+}
+
+/* Mid-Semester Setup Modal Tag Rows */
+.sub-comp-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.comp-type-pill {
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 1px 7px;
+  border-radius: 4px;
+}

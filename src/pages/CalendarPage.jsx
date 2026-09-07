@@ -44,6 +44,8 @@ export function CalendarPage() {
     clearDateAttendance,
     markDateAsInstructional,
     unmarkDateAsInstructional,
+    baselineDate,
+    isDateInBaseline,
     activeSemester,
     overall,
   } = useApp();
@@ -167,6 +169,7 @@ export function CalendarPage() {
   const selectedWeekend = selectedDate ? isWeekend(selectedDate, calendar?.weekends, timetable) : false;
   const selectedNonInst = selectedDate ? isNonInstructionalDay(selectedDate, calendar?.nonInstructionalDays) : false;
   const selectedSpecialInst = selectedDate ? getSpecialInstructionalDay(selectedDate, calendar?.specialInstructionalDays) : null;
+  const isSelectedInBaseline = selectedDate ? isDateInBaseline(selectedDate) : false;
 
   return (
     <div className="page-container calendar-page">
@@ -196,25 +199,6 @@ export function CalendarPage() {
               →
             </button>
           </div>
-
-          {/* LEGACY SEMESTER V BASELINE BANNER */}
-          {activeSemester?.id === "sem-5-2026" && month === 7 && year === 2026 && (
-            <div className="cal-version-strip baseline">
-              <div className="version-strip-badge">📌 August Baseline Period</div>
-              <div className="version-strip-text">
-                All August dates use the <strong>August Baseline Timetable</strong>. Total August attendance is preserved as your initial baseline ({overall.attended}/{overall.conducted} classes). Daily live attendance logging starts on <strong>September 1, 2026</strong>.
-              </div>
-            </div>
-          )}
-
-          {activeSemester?.id === "sem-5-2026" && month >= 8 && year === 2026 && (
-            <div className="cal-version-strip live">
-              <div className="version-strip-badge">⚡ Live Tracking Active</div>
-              <div className="version-strip-text">
-                Scheduled using the <strong>September Onward Timetable</strong>. Classes marked Present or Absent increment your live active attendance record.
-              </div>
-            </div>
-          )}
 
           <div className="calendar-weekdays-row">
             {WEEKDAYS.map((wd) => (
@@ -272,6 +256,7 @@ export function CalendarPage() {
             <span className="legend-item"><i className="legend-dot dot-weekend" /> Weekend</span>
             <span className="legend-item"><i className="legend-dot dot-exam" /> Examination</span>
             <span className="legend-item"><i className="legend-dot dot-noninst" /> Non-Instructional</span>
+            <span className="legend-item"><i className="legend-dot dot-instructional" /> Instructional Day</span>
           </div>
         </div>
 
@@ -289,27 +274,15 @@ export function CalendarPage() {
                 </button>
               </div>
 
-              {/* TIMETABLE VERSION & BASELINE STATUS BANNER (ONLY FOR LEGACY SEMESTER V) */}
-              {selectedDate && activeSemester?.id === "sem-5-2026" && liveStart && selectedDate < liveStart && (
-                <div className="inspector-banner baseline-banner">
+              {/* BASELINE LOCKED BANNER: Classes on or before baseline date are already counted in subjects (PP/PR) */}
+              {isSelectedInBaseline && (
+                <div className="inspector-banner baseline-locked-banner">
                   <div className="banner-tag-row">
-                    <span className="period-pill baseline">📌 August Baseline Period</span>
-                    <span className="timetable-version-tag">August Baseline Timetable</span>
+                    <span className="period-pill baseline">🔒 Baseline Period (Locked)</span>
+                    <span className="timetable-version-tag">Included in Subject Baseline</span>
                   </div>
                   <p className="period-subtext">
-                    Classes on this date use the <strong>August Baseline Timetable</strong>. Total attendance across August is preserved in your starting baseline ({overall.attended}/{overall.conducted} classes). Daily live increments are counted from <strong>September 1 onward</strong>.
-                  </p>
-                </div>
-              )}
-
-              {selectedDate && activeSemester?.id === "sem-5-2026" && liveStart && selectedDate >= liveStart && (
-                <div className="inspector-banner live-tracking-banner">
-                  <div className="banner-tag-row">
-                    <span className="period-pill live">⚡ Live Attendance Active</span>
-                    <span className="timetable-version-tag">September Onward Timetable</span>
-                  </div>
-                  <p className="period-subtext">
-                    Classes on this date reflect the <strong>September Onward Timetable</strong>. Marking Present or Absent on this date updates your live attendance records.
+                    Attendance up to <strong>{baselineDate ? formatDisplayDate(baselineDate) : "the baseline date"}</strong> is already counted in your subjects' baseline numbers (PP / PR). Daily attendance marking is locked for this period to prevent calculation errors and double-counting.
                   </p>
                 </div>
               )}
@@ -355,30 +328,36 @@ export function CalendarPage() {
               )}
 
               <div className="inspector-quick-actions">
-                {selectedSpecialInst ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => unmarkDateAsInstructional(selectedDate)}
-                  >
-                    ↩ Remove Working Day Status
-                  </Button>
+                {isSelectedInBaseline ? (
+                  <span className="baseline-locked-badge">🔒 Baseline Attendance Locked</span>
                 ) : (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setIsInstructionalModalOpen(true)}
-                  >
-                    ✨ Mark as Instructional Day
-                  </Button>
+                  <>
+                    {selectedSpecialInst ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => unmarkDateAsInstructional(selectedDate)}
+                      >
+                        ↩ Remove Working Day Status
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsInstructionalModalOpen(true)}
+                      >
+                        ✨ Mark as Instructional Day
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleNonInstructional(selectedDate)}
+                    >
+                      {selectedNonInst ? "Restore Scheduled Classes" : "Mark as Non-Instructional"}
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleNonInstructional(selectedDate)}
-                >
-                  {selectedNonInst ? "Restore Scheduled Classes" : "Mark as Non-Instructional"}
-                </Button>
               </div>
 
               <div className="inspector-classes-section">
@@ -409,20 +388,22 @@ export function CalendarPage() {
                           <div className="item-attendance-btns">
                             <button
                               type="button"
-                              className={`btn-att-pill present ${status === "present" ? "active" : ""}`}
+                              disabled={isSelectedInBaseline}
+                              className={`btn-att-pill present ${status === "present" ? "active" : ""} ${isSelectedInBaseline ? "locked-disabled" : ""}`}
                               onClick={() => markAttendance(selectedDate, idx, "present")}
-                              title={status === "present" ? "Marked as Attended (Click to unmark)" : "Mark as Present"}
+                              title={isSelectedInBaseline ? `Attendance locked: included in subject baseline (PP/PR) up to ${baselineDate}` : (status === "present" ? "Marked as Attended (Click to unmark)" : "Mark as Present")}
                             >
-                              <span className="btn-icon">✓</span>
+                              <span className="btn-icon">{isSelectedInBaseline ? "🔒" : "✓"}</span>
                               <span>{status === "present" ? "Attended" : "Present"}</span>
                             </button>
                             <button
                               type="button"
-                              className={`btn-att-pill absent ${status === "absent" ? "active" : ""}`}
+                              disabled={isSelectedInBaseline}
+                              className={`btn-att-pill absent ${status === "absent" ? "active" : ""} ${isSelectedInBaseline ? "locked-disabled" : ""}`}
                               onClick={() => markAttendance(selectedDate, idx, "absent")}
-                              title={status === "absent" ? "Marked as Missed (Click to unmark)" : "Mark as Absent"}
+                              title={isSelectedInBaseline ? `Attendance locked: included in subject baseline (PP/PR) up to ${baselineDate}` : (status === "absent" ? "Marked as Missed (Click to unmark)" : "Mark as Absent")}
                             >
-                              <span className="btn-icon">✗</span>
+                              <span className="btn-icon">{isSelectedInBaseline ? "🔒" : "✗"}</span>
                               <span>{status === "absent" ? "Missed" : "Absent"}</span>
                             </button>
                           </div>
