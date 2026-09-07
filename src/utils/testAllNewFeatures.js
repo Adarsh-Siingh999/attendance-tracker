@@ -21,6 +21,7 @@ import {
   DAY_MAP,
   DAY_NAMES,
 } from "../services/timetableAiService.js";
+import { simulateDateRangeLeave } from "./skipSimulator.js";
 
 console.log("================================================================================");
 console.log("🎯 RUNNING COMPREHENSIVE VERIFICATION SUITE: ALL NEW FEATURES & REBUILD AUDIT");
@@ -445,6 +446,126 @@ const finalPct = (finalAttended / finalConducted) * 100; // 84.0%
 assert(finalAttended === 21, "Total attended = 21 (20 baseline PP/PR + 1 live present)");
 assert(finalConducted === 25, "Total conducted = 25 (23 baseline PP/PR + 2 live classes)");
 assert(finalPct === 84.0, "Total attendance percentage accurately computed at 84.0% without double-counting");
+
+// ============================================================================
+// TEST SUITE 7: DATE RANGE LEAVE SIMULATOR (X TO Y)
+// ============================================================================
+console.log("\n--- 7. Testing Date Range Leave Simulator (X to Y) ---");
+
+// Set up sample subjects with current attendance till now
+const simSubjects = [
+  // Subject 1: High buffer (45/50 = 90.0%)
+  { id: "sub-s1", name: "Computer Networks", code: "CN301", attended: 45, conducted: 50, percentage: 90.0 },
+  // Subject 2: Fragile margin (30/38 = 78.95%) -> missing classes will drop it below 75%
+  { id: "sub-s2", name: "Database Systems", code: "DB201", attended: 30, conducted: 38, percentage: 78.95 },
+  // Subject 3: Low margin (24/35 = 68.57%) -> missing classes will drop it below 65% critical
+  { id: "sub-s3", name: "Operating Systems", code: "OS401", attended: 24, conducted: 35, percentage: 68.57 },
+];
+
+// Mock calendar & timetable
+// Monday (1): CN301 (1 class), DB201 (1 class), OS401 (1 class)
+// Tuesday (2): DB201 (1 class), OS401 (1 class)
+// Wednesday (3): CN301 (1 class), DB201 (1 class)
+// Thursday (4): CN301 (1 class), OS401 (1 class)
+// Friday (5): DB201 (1 class)
+const simTimetable = {
+  1: [
+    { start: "09:00", end: "10:00", subject: "Computer Networks", code: "CN301", type: "Lecture" },
+    { start: "10:00", end: "11:00", subject: "Database Systems", code: "DB201", type: "Lecture" },
+    { start: "11:15", end: "12:15", subject: "Operating Systems", code: "OS401", type: "Lecture" },
+  ],
+  2: [
+    { start: "09:00", end: "10:00", subject: "Database Systems", code: "DB201", type: "Lecture" },
+    { start: "10:00", end: "11:00", subject: "Operating Systems", code: "OS401", type: "Lecture" },
+  ],
+  3: [
+    { start: "09:00", end: "10:00", subject: "Computer Networks", code: "CN301", type: "Lecture" },
+    { start: "10:00", end: "11:00", subject: "Database Systems", code: "DB201", type: "Lecture" },
+  ],
+  4: [
+    { start: "09:00", end: "10:00", subject: "Computer Networks", code: "CN301", type: "Lecture" },
+    { start: "10:00", end: "11:00", subject: "Operating Systems", code: "OS401", type: "Lecture" },
+  ],
+  5: [
+    { start: "09:00", end: "10:00", subject: "Database Systems", code: "DB201", type: "Lecture" },
+  ],
+};
+
+const simCalendar = {
+  startDate: "2026-08-01",
+  endDate: "2026-12-20",
+  weekends: [0, 6],
+  holidays: [],
+  nonInstructionalDays: [],
+  examinations: {},
+};
+
+// Test Scenario A: Student takes leave next week from Monday (2026-09-14) to Friday (2026-09-18)
+// Today is Monday 2026-09-07.
+// Interim dates: 2026-09-08 (Tue) to 2026-09-13 (Sun)
+// All scheduled classes in interim are assumed 100% attended!
+// Scheduled classes in interim:
+// Tue Sep 8: DB201 (1), OS401 (1) -> 2
+// Wed Sep 9: CN301 (1), DB201 (1) -> 2
+// Thu Sep 10: CN301 (1), OS401 (1) -> 2
+// Fri Sep 11: DB201 (1) -> 1
+// Sat & Sun: 0
+// Total interim attended: 7 classes (CN: 2, DB: 3, OS: 2)
+
+// Scheduled classes during leave [Sep 14 to Sep 18]:
+// Mon Sep 14: CN301 (1), DB201 (1), OS401 (1) -> 3
+// Tue Sep 15: DB201 (1), OS401 (1) -> 2
+// Wed Sep 16: CN301 (1), DB201 (1) -> 2
+// Thu Sep 17: CN301 (1), OS401 (1) -> 2
+// Fri Sep 18: DB201 (1) -> 1
+// Total missed during leave: 10 classes (CN: 3, DB: 4, OS: 3)
+
+const leaveRangeRes = simulateDateRangeLeave({
+  subjects: simSubjects,
+  startDate: "2026-09-14",
+  endDate: "2026-09-18",
+  todayDate: "2026-09-07",
+  calendar: simCalendar,
+  timetable: simTimetable,
+  threshold: 75,
+  criticalThreshold: 65,
+});
+
+assert(Boolean(leaveRangeRes), "simulateDateRangeLeave returned result");
+assert(leaveRangeRes.totalLeaveDays === 5, "Total leave days = 5 (Mon to Fri)");
+assert(leaveRangeRes.totalClassesInLeave === 10, "Total classes missed during leave = 10 classes");
+assert(leaveRangeRes.totalAttendedInterim === 7, "Total classes attended between today and leave = 7 classes");
+
+// Check CN301 (Computer Networks):
+// Current: 45/50. Interim: +2 attended -> 47/52. Missed in leave: 3 -> Attended: 47, Conducted: 55.
+// Pct: 47 / 55 = 85.45% (>= 75%).
+const cnResult = leaveRangeRes.subjects.find((s) => s.code === "CN301");
+assert(cnResult.attendedAfter === 47, "CN301 attended after = 47");
+assert(cnResult.conductedAfter === 55, "CN301 conducted after = 55");
+assert(cnResult.isEligible === true, "CN301 remains eligible (85.45% >= 75%)");
+
+// Check DB201 (Database Systems):
+// Current: 30/38. Interim: +3 attended -> 33/41. Missed in leave: 4 -> Attended: 33, Conducted: 45.
+// Pct: 33 / 45 = 73.33% (< 75% threshold!).
+const dbResult = leaveRangeRes.subjects.find((s) => s.code === "DB201");
+assert(dbResult.attendedAfter === 33, "DB201 attended after = 33");
+assert(dbResult.conductedAfter === 45, "DB201 conducted after = 45");
+assert(dbResult.isEligible === false, "DB201 drops below threshold (<75%) to 73.33%");
+assert(dbResult.isCritical === false, "DB201 is above critical (73.33% >= 65%)");
+
+// Check OS401 (Operating Systems):
+// Current: 24/35. Interim: +2 attended -> 26/37. Missed in leave: 3 -> Attended: 26, Conducted: 40.
+// Pct: 26 / 40 = 65.0% (< 75% and right at critical threshold).
+const osResult = leaveRangeRes.subjects.find((s) => s.code === "OS401");
+assert(osResult.attendedAfter === 26, "OS401 attended after = 26");
+assert(osResult.conductedAfter === 40, "OS401 conducted after = 40");
+assert(osResult.isEligible === false, "OS401 drops below threshold to 65.0%");
+
+// Check overall detection of which particular subjects are ineligible:
+assert(leaveRangeRes.ineligibleSubjects.length === 2, "Ineligible subjects count = 2 (DB201 and OS401)");
+assert(leaveRangeRes.ineligibleSubjects.some((s) => s.code === "DB201"), "Specific subject DB201 correctly reported in ineligible list");
+assert(leaveRangeRes.ineligibleSubjects.some((s) => s.code === "OS401"), "Specific subject OS401 correctly reported in ineligible list");
+assert(!leaveRangeRes.ineligibleSubjects.some((s) => s.code === "CN301"), "Eligible subject CN301 NOT in ineligible list");
 
 console.log("\n================================================================================");
 console.log(`🎉 ALL NEW FEATURE TESTS PASSED: ${passed}/${total} (100%)`);
