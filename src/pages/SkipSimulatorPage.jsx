@@ -378,14 +378,14 @@ export function SkipSimulatorPage() {
                 <span className="strip-hint">Missed during leave</span>
               </div>
               <div className="stat-strip-item">
-                <span className="strip-lbl">Interim Classes Attended:</span>
-                <strong className="strip-val text-success">+{rangeResult.totalAttendedInterim} classes</strong>
-                <span className="strip-hint">Assumed 100% attended before leave</span>
+                <span className="strip-lbl">Post-Leave Classes (100% Attended):</span>
+                <strong className="strip-val text-success">+{rangeResult.totalAttendedPostLeave} classes</strong>
+                <span className="strip-hint">All remaining classes through {rangeResult.semesterEndDate}</span>
               </div>
             </div>
           </div>
 
-          {/* VERDICT BANNER (RANGE LEAVE) */}
+          {/* VERDICT BANNER (RANGE LEAVE - FULL SEMESTER) */}
           <div className={`skip-verdict-banner verdict-${rangeResult.badge}`}>
             <div className="verdict-icon-col">
               {rangeResult.badge === "success" && <IconCheck size={34} />}
@@ -398,10 +398,10 @@ export function SkipSimulatorPage() {
               <p className="verdict-desc">{rangeResult.description}</p>
             </div>
             <div className="verdict-impact-col">
-              <span className="impact-label">Overall Drop</span>
-              <strong className="impact-drop-val">-{rangeResult.overallDrop}%</strong>
+              <span className="impact-label">Semester Final Outcome</span>
+              <strong className="impact-drop-val">{rangeResult.overallFinalSemesterPct.toFixed(1)}%</strong>
               <small className="impact-change">
-                {rangeResult.overallBefore.toFixed(1)}% → {rangeResult.overallAfter.toFixed(1)}%
+                Current: {rangeResult.overallCurrentPct.toFixed(1)}% • Dip: {rangeResult.overallImmediatePct.toFixed(1)}%
               </small>
             </div>
           </div>
@@ -412,9 +412,9 @@ export function SkipSimulatorPage() {
               <div className="alert-box-header">
                 <IconAlertTriangle size={22} className="text-danger" />
                 <div>
-                  <h4>Particular Subjects Dropping Below {threshold}% Required Threshold:</h4>
+                  <h4>Particular Subjects Permanently Ineligible at Semester End (&lt;{threshold}%):</h4>
                   <p>
-                    If you take leave from <strong>{rangeStartDate}</strong> to <strong>{rangeEndDate}</strong>, attendance in these specific course(s) will fall below your university eligibility requirement:
+                    Even if you attend <strong>100% of all remaining classes post-leave</strong> through {rangeResult.semesterEndDate}, you will still fail to reach the {threshold}% requirement in these specific course(s):
                   </p>
                 </div>
               </div>
@@ -428,7 +428,7 @@ export function SkipSimulatorPage() {
                         {sub.code && <span className="sub-code">{sub.code}</span>}
                       </div>
                       <Badge variant={sub.isCritical ? "danger" : "warning"}>
-                        {sub.isCritical ? `Critical Debarment (<${criticalThreshold}%)` : `Shortage (<${threshold}%)`}
+                        {sub.isCritical ? `Debarment Risk (<${criticalThreshold}%)` : `Shortage (<${threshold}%)`}
                       </Badge>
                     </div>
 
@@ -439,14 +439,18 @@ export function SkipSimulatorPage() {
                       </div>
                       <span className="pct-arrow">→</span>
                       <div className="pct-block">
-                        <span className="pct-lbl">After Leave:</span>
-                        <strong className="text-danger">{sub.afterPct.toFixed(1)}%</strong>
+                        <span className="pct-lbl">Immediate Dip:</span>
+                        <strong>{sub.immediatePct.toFixed(1)}%</strong>
                       </div>
-                      <span className="pct-drop-badge">-{sub.drop}%</span>
+                      <span className="pct-arrow">→</span>
+                      <div className="pct-block">
+                        <span className="pct-lbl">Final Semester:</span>
+                        <strong className="text-danger">{sub.finalSemesterPct.toFixed(1)}%</strong>
+                      </div>
                     </div>
 
                     <div className="ineligible-card-footer">
-                      <span>Missed during leave: <strong>{sub.missedInLeave} classes</strong></span>
+                      <span>Missed in leave: <strong>{sub.missedInLeave}</strong> • Post-leave attended: <strong>+{sub.postLeaveAttended}</strong></span>
                     </div>
                   </div>
                 ))}
@@ -458,10 +462,32 @@ export function SkipSimulatorPage() {
                 <IconCheck size={26} className="text-success" />
               </div>
               <div>
-                <h4>All Subjects Remain Fully Eligible (≥{threshold}%)!</h4>
+                <h4>All Subjects Fully Eligible at Semester End (≥{threshold}%)!</h4>
                 <p>
-                  Even after missing all {rangeResult.totalClassesInLeave} classes during the {rangeStartDate} to {rangeEndDate} leave period, your existing attendance and interim classes keep every course above your required {threshold}% threshold.
+                  Missing all {rangeResult.totalClassesInLeave} classes from {rangeStartDate} to {rangeEndDate} will not cause any shortages if you attend 100% of your remaining {rangeResult.totalAttendedPostLeave} classes post-leave. Every course will finish above your {threshold}% requirement!
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* RECOVERABLE SUBJECTS CALLOUT (IF ANY SUBJECT DIPPED BUT RECOVERS) */}
+          {rangeResult.recoverableSubjects && rangeResult.recoverableSubjects.length > 0 && (
+            <div className="recoverable-subjects-box">
+              <div className="recoverable-icon-box">
+                <span>🔄</span>
+              </div>
+              <div>
+                <h4>{rangeResult.recoverableSubjects.length} Subject(s) Dip During Leave but Successfully Recover!</h4>
+                <p>
+                  The following courses temporarily dip below {threshold}% on {rangeEndDate}, but return to full eligibility by semester end thanks to 100% post-leave attendance:
+                </p>
+                <div className="recoverable-chips-row">
+                  {rangeResult.recoverableSubjects.map((s, sIdx) => (
+                    <span key={sIdx} className="recoverable-chip">
+                      <strong>{s.name}</strong>: Dips to {s.immediatePct.toFixed(1)}% → Recovers to {s.finalSemesterPct.toFixed(1)}% ✓
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -470,8 +496,8 @@ export function SkipSimulatorPage() {
           <div className="skip-impact-table-card">
             <div className="table-card-header">
               <div>
-                <h3>Complete Subject-by-Subject Impact Breakdown</h3>
-                <p className="table-subdesc">Detailed status across all registered courses after concluding leave on {rangeEndDate}</p>
+                <h3>Complete Subject-by-Subject Semester Outcome Breakdown</h3>
+                <p className="table-subdesc">Final projected standing across all courses assuming 100% attendance post-range date through {rangeResult.semesterEndDate}</p>
               </div>
               <span className="table-hint">Target threshold: {threshold}% • Critical: {criticalThreshold}%</span>
             </div>
@@ -482,18 +508,18 @@ export function SkipSimulatorPage() {
                   <tr>
                     <th>Course</th>
                     <th>Missed in Leave</th>
-                    <th>Interim Attended</th>
-                    <th>Current % (Till Now)</th>
-                    <th>Projected % (Post-Leave)</th>
-                    <th>Impact Drop</th>
-                    <th>Eligibility Status</th>
+                    <th>Post-Leave (100%)</th>
+                    <th>Current %</th>
+                    <th>Immediate Dip %</th>
+                    <th>Final Semester %</th>
+                    <th>Final Eligibility</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rangeResult.subjects.map((item) => (
                     <tr
                       key={item.id}
-                      className={item.isCritical ? "row-danger" : !item.isEligible ? "row-warning" : ""}
+                      className={item.isFinalCritical ? "row-danger" : !item.isFinalEligible ? "row-warning" : ""}
                     >
                       <td>
                         <strong>{item.name}</strong>
@@ -506,7 +532,7 @@ export function SkipSimulatorPage() {
                       </td>
                       <td>
                         <span className="text-success font-semibold">
-                          +{item.interimAttended} attended
+                          +{item.postLeaveAttended} classes
                         </span>
                       </td>
                       <td>
@@ -514,23 +540,23 @@ export function SkipSimulatorPage() {
                         <div className="cell-fraction-sub">({item.currentAttended}/{item.currentConducted})</div>
                       </td>
                       <td>
-                        <strong className={!item.isEligible ? "text-danger" : "text-success"}>
-                          {item.afterPct.toFixed(1)}%
-                        </strong>
-                        <div className="cell-fraction-sub">({item.attendedAfter}/{item.conductedAfter})</div>
+                        <span className={item.immediatePct < threshold ? "text-danger font-semibold" : ""}>
+                          {item.immediatePct.toFixed(1)}%
+                        </span>
                       </td>
                       <td>
-                        <span className={item.drop > 0 ? "text-danger drop-pill" : "text-muted"}>
-                          {item.drop > 0 ? `-${item.drop}%` : "0%"}
-                        </span>
+                        <strong className={!item.isFinalEligible ? "text-danger" : "text-success"}>
+                          {item.finalSemesterPct.toFixed(1)}%
+                        </strong>
+                        <div className="cell-fraction-sub">({item.finalSemesterAttended}/{item.finalSemesterConducted})</div>
                       </td>
                       <td>
                         <Badge
                           variant={
-                            item.statusAfter === "Eligible" ? "success" : item.statusAfter === "Precaution" ? "warning" : "danger"
+                            item.statusFinal === "Eligible" ? "success" : item.statusFinal === "Precaution" ? "warning" : "danger"
                           }
                         >
-                          {item.statusAfter}
+                          {item.statusFinal}
                         </Badge>
                       </td>
                     </tr>

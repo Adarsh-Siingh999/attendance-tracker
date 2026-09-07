@@ -169,6 +169,7 @@ export function simulateDateRangeLeave({
   todayDate = formatDate(new Date()),
   calendar = null,
   timetable = null,
+  semesterEndDate = null,
   threshold = 75,
   criticalThreshold = 65,
 }) {
@@ -187,6 +188,17 @@ export function simulateDateRangeLeave({
 
   const start = startDate <= endDate ? startDate : endDate;
   const end = startDate <= endDate ? endDate : startDate;
+
+  // Resolve effective semester end date
+  const examEndDates = Object.values(calendar?.examinations || {}).map((e) => e.endDate).filter(Boolean);
+  const latestExam = examEndDates.sort().at(-1);
+  let resolvedSemesterEnd = semesterEndDate || calendar?.endDate || latestExam;
+  if (!resolvedSemesterEnd) {
+    const base = new Date(`${todayDate}T00:00:00`);
+    const calcEnd = new Date(base);
+    calcEnd.setDate(calcEnd.getDate() + 90);
+    resolvedSemesterEnd = formatDate(calcEnd);
+  }
 
   // 1. Gather interim classes between todayDate and start (if start > todayDate)
   // Assumes student attends 100% of these classes prior to departure
@@ -216,7 +228,7 @@ export function simulateDateRangeLeave({
     }
   }
 
-  // 2. Gather classes in leave range [start, end]
+  // 2. Gather classes in leave range [start, end] (all missed: +0 attended, +1 conducted)
   const leaveDays = [];
   const missedClassesByCode = {};
   let totalClassesInLeave = 0;
@@ -244,57 +256,104 @@ export function simulateDateRangeLeave({
     curLeave.setDate(curLeave.getDate() + 1);
   }
 
-  // 3. Compute post-leave attendance per subject
-  let totalAttendedBefore = 0;
-  let totalConductedBefore = 0;
-  let totalAttendedAfter = 0;
-  let totalConductedAfter = 0;
+  // 3. Gather post-leave classes between end + 1 and semester end
+  // User Requirement: Assumes student attends 100% of all remaining classes post the range date!
+  const postLeaveAttendedByCode = {};
+  let totalAttendedPostLeave = 0;
+  const postLeaveDays = [];
+
+  const curPost = new Date(`${end}T00:00:00`);
+  curPost.setDate(curPost.getDate() + 1);
+  const semesterEndD = new Date(`${resolvedSemesterEnd}T00:00:00`);
+
+  while (curPost <= semesterEndD) {
+    const dStr = formatDate(curPost);
+    const dayClasses = getClassesForDate(dStr, { calendar, timetable });
+    if (dayClasses.length > 0) {
+      postLeaveDays.push({ date: dStr, classes: dayClasses });
+      for (const cls of dayClasses) {
+        const code = cls.code || cls.subject;
+        postLeaveAttendedByCode[code] = (postLeaveAttendedByCode[code] || 0) + 1;
+        totalAttendedPostLeave += 1;
+      }
+    }
+    curPost.setDate(curPost.getDate() + 1);
+  }
+
+  // 4. Compute final semester attendance per subject assuming 100% post-leave attendance
+  let totalAttendedCurrent = 0;
+  let totalConductedCurrent = 0;
+  let totalImmediateAttended = 0;
+  let totalImmediateConducted = 0;
+  let totalFinalSemesterAttended = 0;
+  let totalFinalSemesterConducted = 0;
 
   const subjectResults = [];
   const ineligibleSubjects = [];
   const criticalSubjects = [];
+  const recoverableSubjects = [];
 
   for (const sub of subjects) {
     const code = sub.code || sub.name;
     const currentAttended = Number(sub.attended) || 0;
     const currentConducted = Number(sub.conducted) || 0;
+    const currentPct = calculatePercentage(currentAttended, currentConducted) ?? 100;
 
     const interimAttended = interimAttendedByCode[code] || 0;
     const missedInLeave = missedClassesByCode[code] || 0;
+    const postLeaveAttended = postLeaveAttendedByCode[code] || 0;
 
-    const attendedAfter = currentAttended + interimAttended;
-    const conductedAfter = currentConducted + interimAttended + missedInLeave;
+    // A. Immediate status at Date Y (upon return from leave)
+    const immediateAttended = currentAttended + interimAttended;
+    const immediateConducted = currentConducted + interimAttended + missedInLeave;
+    const immediatePct = calculatePercentage(immediateAttended, immediateConducted) ?? 100;
+    const isImmediateEligible = immediatePct >= threshold;
 
-    const currentPct = calculatePercentage(currentAttended, currentConducted) ?? 100;
-    const afterPct = calculatePercentage(attendedAfter, conductedAfter) ?? 100;
-    const drop = Number((currentPct - afterPct).toFixed(2));
+    // B. Final Semester Status (assuming 100% attendance of all remaining classes post-range date)
+    const finalSemesterAttended = immediateAttended + postLeaveAttended;
+    const finalSemesterConducted = immediateConducted + postLeaveAttended;
+    const finalSemesterPct = calculatePercentage(finalSemesterAttended, finalSemesterConducted) ?? 100;
+    const isFinalEligible = finalSemesterPct >= threshold;
+    const isFinalCritical = finalSemesterPct < criticalThreshold;
+    const statusFinal = getSubjectStatus(finalSemesterPct, threshold, criticalThreshold);
 
-    totalAttendedBefore += currentAttended;
-    totalConductedBefore += currentConducted;
-    totalAttendedAfter += attendedAfter;
-    totalConductedAfter += conductedAfter;
+    const netSemesterDrop = Number((currentPct - finalSemesterPct).toFixed(2));
+    const canRecover = !isImmediateEligible && isFinalEligible;
 
-    const statusBefore = getSubjectStatus(currentPct, threshold, criticalThreshold);
-    const statusAfter = getSubjectStatus(afterPct, threshold, criticalThreshold);
-    const isEligible = afterPct >= threshold;
-    const isCritical = afterPct < criticalThreshold;
+    totalAttendedCurrent += currentAttended;
+    totalConductedCurrent += currentConducted;
+    totalImmediateAttended += immediateAttended;
+    totalImmediateConducted += immediateConducted;
+    totalFinalSemesterAttended += finalSemesterAttended;
+    totalFinalSemesterConducted += finalSemesterConducted;
 
-    if (!isEligible) {
+    if (!isFinalEligible) {
       ineligibleSubjects.push({
         id: sub.id,
         name: sub.name,
         code: sub.code,
         currentPct,
-        afterPct,
-        drop,
+        immediatePct,
+        finalSemesterPct,
         missedInLeave,
-        isCritical,
-        statusAfter,
+        postLeaveAttended,
+        drop: netSemesterDrop,
+        isCritical: isFinalCritical,
+        statusFinal,
       });
     }
 
-    if (isCritical) {
+    if (isFinalCritical) {
       criticalSubjects.push(sub.name);
+    }
+
+    if (canRecover) {
+      recoverableSubjects.push({
+        name: sub.name,
+        code: sub.code,
+        immediatePct,
+        finalSemesterPct,
+      });
     }
 
     subjectResults.push({
@@ -306,39 +365,43 @@ export function simulateDateRangeLeave({
       currentPct,
       interimAttended,
       missedInLeave,
-      attendedAfter,
-      conductedAfter,
-      afterPct,
-      drop,
-      statusBefore,
-      statusAfter,
-      isEligible,
-      isCritical,
+      postLeaveAttended,
+      immediateAttended,
+      immediateConducted,
+      immediatePct,
+      finalSemesterAttended,
+      finalSemesterConducted,
+      finalSemesterPct,
+      drop: netSemesterDrop,
+      statusFinal,
+      isFinalEligible,
+      isFinalCritical,
+      canRecover,
     });
   }
 
-  const overallBefore = calculatePercentage(totalAttendedBefore, totalConductedBefore) ?? 0;
-  const overallAfter = calculatePercentage(totalAttendedAfter, totalConductedAfter) ?? 0;
-  const overallDrop = Number((overallBefore - overallAfter).toFixed(2));
-  const isOverallEligible = overallAfter >= threshold;
+  const overallCurrentPct = calculatePercentage(totalAttendedCurrent, totalConductedCurrent) ?? 0;
+  const overallImmediatePct = calculatePercentage(totalImmediateAttended, totalImmediateConducted) ?? 0;
+  const overallFinalSemesterPct = calculatePercentage(totalFinalSemesterAttended, totalFinalSemesterConducted) ?? 0;
+  const isOverallFinalEligible = overallFinalSemesterPct >= threshold;
 
-  // 4. Determine overall verdict
-  let verdict = "ELIGIBLE";
+  // 5. Determine final semester eligibility verdict
+  let verdict = "ELIGIBLE_SEMESTER";
   let badge = "success";
-  let headline = "Safe to take leave! All subjects eligible 🎉";
-  let description = `If you attend all scheduled classes from now until ${start} and miss all ${totalClassesInLeave} classes from ${start} to ${end}, you will remain eligible (>=${threshold}%) in ALL registered subjects!`;
+  let headline = "Fully Eligible by Semester End! 🎉";
+  let description = `Even after missing all ${totalClassesInLeave} classes from ${start} to ${end}, attending 100% of all ${totalAttendedPostLeave} remaining classes post-leave guarantees you remain eligible (≥${threshold}%) in ALL subjects by semester end!`;
 
   if (criticalSubjects.length > 0) {
     verdict = "CRITICAL_SHORTAGE";
     badge = "danger";
-    headline = "Debarment Risk! Critical Shortage 🚨";
-    description = `Taking leave in this range will drop ${criticalSubjects.length} subject(s) below the critical ${criticalThreshold}% debarment limit: ${criticalSubjects.join(", ")}.`;
-  } else if (ineligibleSubjects.length > 0 || !isOverallEligible) {
-    verdict = "INELIGIBLE_SUBJECTS";
+    headline = "Debarment Risk! Critical Shortage at Semester End 🚨";
+    description = `Even with 100% attendance in every remaining class post-leave, ${criticalSubjects.length} subject(s) CANNOT recover and will permanently fall below the critical ${criticalThreshold}% debarment limit: ${criticalSubjects.join(", ")}.`;
+  } else if (ineligibleSubjects.length > 0 || !isOverallFinalEligible) {
+    verdict = "UNRECOVERABLE_SHORTAGE";
     badge = "warning";
-    headline = `Attendance Shortage in ${ineligibleSubjects.length} Subject(s) ⚠️`;
-    const names = ineligibleSubjects.map((s) => `${s.name} (${s.afterPct.toFixed(1)}%)`).join(", ");
-    description = `You will drop below your ${threshold}% requirement in: ${names}.`;
+    headline = `Permanent Shortage in ${ineligibleSubjects.length} Subject(s) ⚠️`;
+    const names = ineligibleSubjects.map((s) => `${s.name} (${s.finalSemesterPct.toFixed(1)}%)`).join(", ");
+    description = `Even if you attend 100% of all classes after your leave, you cannot reach ${threshold}% in: ${names}.`;
   } else if (totalClassesInLeave === 0) {
     headline = "Zero classes missed in range! 🎉";
     description = `No instructional classes are scheduled between ${start} and ${end} (all days are holidays, weekends, or non-instructional). Your attendance will not drop at all!`;
@@ -347,23 +410,28 @@ export function simulateDateRangeLeave({
   return {
     startDate: start,
     endDate: end,
+    semesterEndDate: resolvedSemesterEnd,
     totalLeaveDays: leaveDays.length,
     instructionalLeaveDays: leaveDays.filter((d) => d.isInstructional).length,
     totalClassesInLeave,
     totalAttendedInterim,
-    overallBefore,
-    overallAfter,
-    overallDrop,
-    isOverallEligible,
+    totalAttendedPostLeave,
+    overallCurrentPct,
+    overallImmediatePct,
+    overallFinalSemesterPct,
+    overallDrop: Number((overallCurrentPct - overallFinalSemesterPct).toFixed(2)),
+    isOverallFinalEligible,
     verdict,
     badge,
     headline,
     description,
     ineligibleSubjects,
     criticalSubjects,
+    recoverableSubjects,
     subjects: subjectResults,
     leaveDays,
     preLeaveDays,
+    postLeaveDays,
   };
 }
 

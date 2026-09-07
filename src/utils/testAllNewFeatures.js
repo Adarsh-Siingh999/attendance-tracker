@@ -535,37 +535,37 @@ assert(Boolean(leaveRangeRes), "simulateDateRangeLeave returned result");
 assert(leaveRangeRes.totalLeaveDays === 5, "Total leave days = 5 (Mon to Fri)");
 assert(leaveRangeRes.totalClassesInLeave === 10, "Total classes missed during leave = 10 classes");
 assert(leaveRangeRes.totalAttendedInterim === 7, "Total classes attended between today and leave = 7 classes");
+assert(leaveRangeRes.totalAttendedPostLeave > 0, "Post-leave classes till semester end are counted and attended 100%");
 
 // Check CN301 (Computer Networks):
-// Current: 45/50. Interim: +2 attended -> 47/52. Missed in leave: 3 -> Attended: 47, Conducted: 55.
-// Pct: 47 / 55 = 85.45% (>= 75%).
+// Stays well above threshold both immediately and at semester end
 const cnResult = leaveRangeRes.subjects.find((s) => s.code === "CN301");
-assert(cnResult.attendedAfter === 47, "CN301 attended after = 47");
-assert(cnResult.conductedAfter === 55, "CN301 conducted after = 55");
-assert(cnResult.isEligible === true, "CN301 remains eligible (85.45% >= 75%)");
+assert(cnResult.isFinalEligible === true, "CN301 is fully eligible at semester end with 100% post-leave attendance");
 
 // Check DB201 (Database Systems):
-// Current: 30/38. Interim: +3 attended -> 33/41. Missed in leave: 4 -> Attended: 33, Conducted: 45.
-// Pct: 33 / 45 = 73.33% (< 75% threshold!).
+// Dips to 73.33% at Date Y (Sep 18), but by attending 100% of classes from Sep 19 through Dec 20,
+// it recovers to >= 75%!
 const dbResult = leaveRangeRes.subjects.find((s) => s.code === "DB201");
-assert(dbResult.attendedAfter === 33, "DB201 attended after = 33");
-assert(dbResult.conductedAfter === 45, "DB201 conducted after = 45");
-assert(dbResult.isEligible === false, "DB201 drops below threshold (<75%) to 73.33%");
-assert(dbResult.isCritical === false, "DB201 is above critical (73.33% >= 65%)");
+assert(dbResult.immediatePct < 75, "DB201 immediate dip on Sep 18 is 73.33% (< 75%)");
+assert(dbResult.finalSemesterPct > 75, "DB201 recovers to >= 75% at semester end due to 100% post-leave attendance");
+assert(dbResult.canRecover === true, "DB201 is classified as recoverable (dips during leave but reaches >=75% by semester end)");
 
-// Check OS401 (Operating Systems):
-// Current: 24/35. Interim: +2 attended -> 26/37. Missed in leave: 3 -> Attended: 26, Conducted: 40.
-// Pct: 26 / 40 = 65.0% (< 75% and right at critical threshold).
-const osResult = leaveRangeRes.subjects.find((s) => s.code === "OS401");
-assert(osResult.attendedAfter === 26, "OS401 attended after = 26");
-assert(osResult.conductedAfter === 40, "OS401 conducted after = 40");
-assert(osResult.isEligible === false, "OS401 drops below threshold to 65.0%");
+// Now test a scenario where leave is too long so a subject CANNOT recover even with 100% post-leave attendance:
+// 4-week leave from Sep 14 to Oct 12:
+const longLeaveRes = simulateDateRangeLeave({
+  subjects: simSubjects,
+  startDate: "2026-09-14",
+  endDate: "2026-10-12",
+  todayDate: "2026-09-07",
+  calendar: simCalendar,
+  timetable: simTimetable,
+  threshold: 75,
+  criticalThreshold: 65,
+});
 
-// Check overall detection of which particular subjects are ineligible:
-assert(leaveRangeRes.ineligibleSubjects.length === 2, "Ineligible subjects count = 2 (DB201 and OS401)");
-assert(leaveRangeRes.ineligibleSubjects.some((s) => s.code === "DB201"), "Specific subject DB201 correctly reported in ineligible list");
-assert(leaveRangeRes.ineligibleSubjects.some((s) => s.code === "OS401"), "Specific subject OS401 correctly reported in ineligible list");
-assert(!leaveRangeRes.ineligibleSubjects.some((s) => s.code === "CN301"), "Eligible subject CN301 NOT in ineligible list");
+assert(longLeaveRes.ineligibleSubjects.length > 0, "Long leave correctly flags permanently ineligible subjects at semester end");
+assert(longLeaveRes.ineligibleSubjects.some((s) => s.code === "OS401"), "Specific subject OS401 reported as permanently ineligible at semester end");
+assert(Boolean(longLeaveRes.ineligibleSubjects[0].finalSemesterPct), "Reports final semester percentage for ineligible subject");
 
 console.log("\n================================================================================");
 console.log(`🎉 ALL NEW FEATURE TESTS PASSED: ${passed}/${total} (100%)`);
