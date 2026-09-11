@@ -492,6 +492,73 @@ export function SkipSimulatorPage() {
             </div>
           )}
 
+          {/* POST-LEAVE SAFETY MARGIN: MAX ALLOWED EXTRA LEAVE DAYS TO STAY >= 70% AND >= 65% */}
+          <div className="post-leave-allowance-card">
+            <div className="allowance-card-header">
+              <div className="allowance-header-title-group">
+                <span className="allowance-badge-icon">🏖️</span>
+                <div>
+                  <h3 className="allowance-card-title">Post-Leave Extra Leave Allowance</h3>
+                  <p className="allowance-card-desc">
+                    After returning from your leave window ({rangeStartDate} to {rangeEndDate}), how many <strong>maximum instructional days</strong> can you leave thereafter such that <em>every subject stays above</em> <strong>70%</strong> and <strong>65%</strong>?
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="allowance-cards-grid">
+              {/* Card 1: To stay above 70% */}
+              <div className={`allowance-box ${rangeResult.postLeaveAllowance70.maxDays > 0 ? "allowance-box-safe" : "allowance-box-limit"}`}>
+                <div className="allowance-box-top">
+                  <span className="allowance-target-tag">Target: ≥ 70% In Every Subject</span>
+                  <span className={`allowance-status-pill ${rangeResult.postLeaveAllowance70.maxDays > 0 ? "pill-safe" : "pill-warn"}`}>
+                    {rangeResult.postLeaveAllowance70.maxDays > 0 ? "Buffer Available" : "Zero Extra Days"}
+                  </span>
+                </div>
+                <div className="allowance-metric-row">
+                  <strong className="allowance-days-number">{rangeResult.postLeaveAllowance70.maxDays}</strong>
+                  <span className="allowance-days-unit">instructional day{rangeResult.postLeaveAllowance70.maxDays === 1 ? "" : "s"} max</span>
+                </div>
+                <div className="allowance-box-footer">
+                  {rangeResult.postLeaveAllowance70.maxDays > 0 ? (
+                    <p className="allowance-footer-note text-success">
+                      ✓ You can miss up to <strong>{rangeResult.postLeaveAllowance70.maxDays} full day(s)</strong> post-leave. The first subject that would breach 70% if you take any more days is <strong>{rangeResult.postLeaveAllowance70.bottleneckSubject}</strong>.
+                    </p>
+                  ) : (
+                    <p className="allowance-footer-note text-warning">
+                      ⚠️ <strong>0 extra days:</strong> Taking even 1 more full instructional day post-leave will drop <strong>{rangeResult.postLeaveAllowance70.bottleneckSubject}</strong> below 70%.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: To stay above 65% (Critical Debarment Limit) */}
+              <div className={`allowance-box ${rangeResult.postLeaveAllowance65.maxDays > 0 ? "allowance-box-safe" : "allowance-box-danger"}`}>
+                <div className="allowance-box-top">
+                  <span className="allowance-target-tag">Critical Limit: ≥ 65% In Every Subject</span>
+                  <span className={`allowance-status-pill ${rangeResult.postLeaveAllowance65.maxDays > 0 ? "pill-safe" : "pill-danger"}`}>
+                    {rangeResult.postLeaveAllowance65.maxDays > 0 ? "Debarment Buffer" : "Critical Limit"}
+                  </span>
+                </div>
+                <div className="allowance-metric-row">
+                  <strong className="allowance-days-number">{rangeResult.postLeaveAllowance65.maxDays}</strong>
+                  <span className="allowance-days-unit">instructional day{rangeResult.postLeaveAllowance65.maxDays === 1 ? "" : "s"} max</span>
+                </div>
+                <div className="allowance-box-footer">
+                  {rangeResult.postLeaveAllowance65.maxDays > 0 ? (
+                    <p className="allowance-footer-note text-success">
+                      ✓ You can miss up to <strong>{rangeResult.postLeaveAllowance65.maxDays} full day(s)</strong> post-leave before debarment risk. Limiting subject: <strong>{rangeResult.postLeaveAllowance65.bottleneckSubject}</strong>.
+                    </p>
+                  ) : (
+                    <p className="allowance-footer-note text-danger">
+                      🚨 <strong>0 extra days:</strong> Any additional leave day will push <strong>{rangeResult.postLeaveAllowance65.bottleneckSubject}</strong> under 65% debarment limit.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ALL SUBJECTS IMPACT BREAKDOWN TABLE */}
           <div className="skip-impact-table-card">
             <div className="table-card-header">
@@ -512,6 +579,8 @@ export function SkipSimulatorPage() {
                     <th>Current %</th>
                     <th>Immediate Dip %</th>
                     <th>Final Semester %</th>
+                    <th>Post-Leave Buffer (≥70%)</th>
+                    <th>Post-Leave Buffer (≥65%)</th>
                     <th>Final Eligibility</th>
                   </tr>
                 </thead>
@@ -549,6 +618,16 @@ export function SkipSimulatorPage() {
                           {item.finalSemesterPct.toFixed(1)}%
                         </strong>
                         <div className="cell-fraction-sub">({item.finalSemesterAttended}/{item.finalSemesterConducted})</div>
+                      </td>
+                      <td>
+                        <span className={`buffer-tag ${item.maxMissableClasses70 > 0 ? "buffer-tag-pos" : "buffer-tag-zero"}`}>
+                          {item.maxMissableClasses70} class{item.maxMissableClasses70 === 1 ? "" : "es"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`buffer-tag ${item.maxMissableClasses65 > 0 ? "buffer-tag-pos" : "buffer-tag-zero"}`}>
+                          {item.maxMissableClasses65} class{item.maxMissableClasses65 === 1 ? "" : "es"}
+                        </span>
                       </td>
                       <td>
                         <Badge

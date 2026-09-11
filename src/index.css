@@ -6323,3 +6323,170 @@ button.locked-disabled {
   padding: 3px 10px;
   border-radius: 6px;
 }
+
+/* Post-Leave Extra Leave Allowance Card */
+.post-leave-allowance-card {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--card-border, #e2e8f0);
+  border-radius: var(--radius-md, 12px);
+  padding: 20px;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+}
+
+.allowance-header-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.allowance-badge-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.allowance-card-title {
+  font-size: 16px;
+  font-weight: 750;
+  margin: 0 0 4px 0;
+  color: var(--text-primary, #0f172a);
+}
+
+.allowance-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.allowance-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .allowance-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.allowance-box {
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.allowance-box-safe {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.allowance-box-limit {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.allowance-box-danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.allowance-box-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.allowance-target-tag {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.allowance-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pill-safe {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pill-warn {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.pill-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.allowance-metric-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.allowance-days-number {
+  font-size: 32px;
+  font-weight: 850;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.allowance-box-safe .allowance-days-number {
+  color: #15803d;
+}
+
+.allowance-box-danger .allowance-days-number,
+.allowance-box-limit .allowance-days-number {
+  color: #b45309;
+}
+
+.allowance-days-unit {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.allowance-box-footer {
+  margin-top: 2px;
+}
+
+.allowance-footer-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Buffer tags in subject breakdown table */
+.buffer-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.buffer-tag-pos {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.buffer-tag-zero {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}

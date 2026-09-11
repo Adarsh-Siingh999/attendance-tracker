@@ -320,6 +320,13 @@ export function simulateDateRangeLeave({
     const netSemesterDrop = Number((currentPct - finalSemesterPct).toFixed(2));
     const canRecover = !isImmediateEligible && isFinalEligible;
 
+    // Calculate max individual classes this subject can afford to miss out of postLeaveAttended
+    // Condition: (immediateAttended + (postLeaveAttended - x)) / (immediateConducted + postLeaveAttended) >= T / 100
+    // immediateAttended + postLeaveAttended - x >= (T / 100) * (immediateConducted + postLeaveAttended)
+    // x <= finalSemesterAttended - (T / 100) * finalSemesterConducted
+    const maxMissableClasses70 = Math.max(0, Math.floor(finalSemesterAttended - 0.70 * finalSemesterConducted));
+    const maxMissableClasses65 = Math.max(0, Math.floor(finalSemesterAttended - 0.65 * finalSemesterConducted));
+
     totalAttendedCurrent += currentAttended;
     totalConductedCurrent += currentConducted;
     totalImmediateAttended += immediateAttended;
@@ -377,8 +384,77 @@ export function simulateDateRangeLeave({
       isFinalEligible,
       isFinalCritical,
       canRecover,
+      maxMissableClasses70,
+      maxMissableClasses65,
     });
   }
+
+  // 4B. Calculate Maximum Extra Leave Days Post-Leave Window for 70% and 65% thresholds
+  // Simulates taking extra leave days consecutively right after the leave range (from end + 1 onwards)
+  // or anytime post-leave. We test day-by-day: for each instructional day skipped in postLeaveDays,
+  // do all subjects remain >= target%?
+  const calculateMaxPostLeaveDays = (targetPct) => {
+    // If already not eligible at 100% attendance, max additional leave days is 0
+    const alreadyFailing = subjectResults.some((s) => s.finalSemesterPct < targetPct);
+    if (alreadyFailing) {
+      return {
+        maxDays: 0,
+        bottleneckSubject: subjectResults.find((s) => s.finalSemesterPct < targetPct)?.name || null,
+        status: "CANNOT_TAKE_MORE",
+      };
+    }
+
+    let allowedExtraDays = 0;
+    let bottleneckSubject = null;
+    let bottleneckSubjectCode = null;
+
+    // Running tally of missed post-leave classes per subject code
+    const accumulatedPostMisses = {};
+
+    for (let i = 0; i < postLeaveDays.length; i++) {
+      const day = postLeaveDays[i];
+      // Check if skipping this day's classes would cause any subject to dip below targetPct
+      const tempMisses = { ...accumulatedPostMisses };
+      for (const cls of day.classes) {
+        const cCode = cls.code || cls.subject;
+        tempMisses[cCode] = (tempMisses[cCode] || 0) + 1;
+      }
+
+      let canSkipDay = true;
+      for (const sub of subjectResults) {
+        const cCode = sub.code || sub.name;
+        const subMisses = tempMisses[cCode] || 0;
+        const projectedAttended = sub.finalSemesterAttended - subMisses;
+        const projectedConducted = sub.finalSemesterConducted;
+        const projectedPct = calculatePercentage(projectedAttended, projectedConducted) ?? 0;
+
+        if (projectedPct < targetPct) {
+          canSkipDay = false;
+          bottleneckSubject = sub.name;
+          bottleneckSubjectCode = sub.code;
+          break;
+        }
+      }
+
+      if (canSkipDay) {
+        allowedExtraDays++;
+        Object.assign(accumulatedPostMisses, tempMisses);
+      } else {
+        break; // Reached the limit!
+      }
+    }
+
+    return {
+      maxDays: allowedExtraDays,
+      totalPostInstructionalDays: postLeaveDays.length,
+      bottleneckSubject,
+      bottleneckSubjectCode,
+      status: allowedExtraDays > 0 ? "BUFFER_AVAILABLE" : "EXACT_LIMIT",
+    };
+  };
+
+  const postLeaveAllowance70 = calculateMaxPostLeaveDays(70);
+  const postLeaveAllowance65 = calculateMaxPostLeaveDays(65);
 
   const overallCurrentPct = calculatePercentage(totalAttendedCurrent, totalConductedCurrent) ?? 0;
   const overallImmediatePct = calculatePercentage(totalImmediateAttended, totalImmediateConducted) ?? 0;
@@ -432,6 +508,8 @@ export function simulateDateRangeLeave({
     leaveDays,
     preLeaveDays,
     postLeaveDays,
+    postLeaveAllowance70,
+    postLeaveAllowance65,
   };
 }
 

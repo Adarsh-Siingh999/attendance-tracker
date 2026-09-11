@@ -567,6 +567,21 @@ assert(longLeaveRes.ineligibleSubjects.length > 0, "Long leave correctly flags p
 assert(longLeaveRes.ineligibleSubjects.some((s) => s.code === "OS401"), "Specific subject OS401 reported as permanently ineligible at semester end");
 assert(Boolean(longLeaveRes.ineligibleSubjects[0].finalSemesterPct), "Reports final semester percentage for ineligible subject");
 
+// Test Post-Leave Extra Leave Allowance (70% and 65%)
+assert(typeof leaveRangeRes.postLeaveAllowance70 === "object", "leaveRangeRes returns postLeaveAllowance70 object");
+assert(typeof leaveRangeRes.postLeaveAllowance70.maxDays === "number", "postLeaveAllowance70.maxDays is a number");
+assert(leaveRangeRes.postLeaveAllowance70.maxDays >= 0, "postLeaveAllowance70.maxDays >= 0");
+
+assert(typeof leaveRangeRes.postLeaveAllowance65 === "object", "leaveRangeRes returns postLeaveAllowance65 object");
+assert(typeof leaveRangeRes.postLeaveAllowance65.maxDays === "number", "postLeaveAllowance65.maxDays is a number");
+assert(leaveRangeRes.postLeaveAllowance65.maxDays >= leaveRangeRes.postLeaveAllowance70.maxDays, "postLeaveAllowance65.maxDays is >= postLeaveAllowance70.maxDays (critical threshold allows more or equal days)");
+assert(Boolean(leaveRangeRes.postLeaveAllowance70.bottleneckSubject), "Identifies bottleneck subject for 70% allowance");
+assert(Boolean(leaveRangeRes.postLeaveAllowance65.bottleneckSubject), "Identifies bottleneck subject for 65% allowance");
+
+// Check subject-level missable class buffers
+assert(cnResult.maxMissableClasses70 >= 0, "CN301 reports maxMissableClasses70");
+assert(cnResult.maxMissableClasses65 >= cnResult.maxMissableClasses70, "CN301 maxMissableClasses65 >= maxMissableClasses70");
+
 console.log("\n================================================================================");
 console.log(`🎉 ALL NEW FEATURE TESTS PASSED: ${passed}/${total} (100%)`);
 console.log("================================================================================\n");
