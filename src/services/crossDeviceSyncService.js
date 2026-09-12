@@ -207,3 +207,34 @@ export async function triggerNativeShare(url, title = "My Live Attendance Tracke
 
   return { success: false };
 }
+
+/**
+ * High-level function to share the live condition of attendance to any device.
+ * Generates an up-to-date compressed URL of all current attendance marks, courses,
+ * schedule, and profile, with summary text, and triggers native share / clipboard.
+ *
+ * @param {Object} options
+ * @param {string} [options.customBaseUrl] - Optional base host URL
+ * @param {string} [options.studentName] - Optional display name for notification
+ * @param {number|string} [options.overallPercentage] - Current overall percentage
+ * @returns {Promise<{ success: boolean, url: string, native: boolean, copied: boolean, text: string }>}
+ */
+export async function shareLiveAttendanceCondition({ customBaseUrl = "", studentName = "", overallPercentage = null } = {}) {
+  const syncInfo = await generateDeviceSyncUrl(customBaseUrl);
+  const name = studentName || syncInfo.user || "Student";
+  const pctStr = overallPercentage !== null && overallPercentage !== undefined ? `${Number(overallPercentage).toFixed(1)}%` : "Live";
+
+  const shareTitle = `Live Attendance Report: ${name} (${pctStr})`;
+  const shareText = `📊 Current Live Attendance Condition for ${name}: ${pctStr} overall.\nOpen this link on your phone, laptop, or tablet to instantly sync and view full course-by-course status:`;
+
+  const shareResult = await triggerNativeShare(syncInfo.url, shareTitle, shareText);
+
+  return {
+    success: shareResult.success,
+    url: syncInfo.url,
+    native: Boolean(shareResult.native),
+    copied: Boolean(shareResult.copied),
+    text: shareText,
+    timestamp: syncInfo.timestamp,
+  };
+}

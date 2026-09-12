@@ -1,7 +1,7 @@
 import { useApp } from "../context/AppContext.jsx";
 import { Badge } from "../components/common/Badge.jsx";
 import { Button } from "../components/common/Button.jsx";
-import { IconAlertTriangle, IconCheck, IconX, IconSkip, IconCalendar } from "../components/common/Icons.jsx";
+import { IconAlertTriangle, IconCheck, IconX, IconSkip, IconCalendar, IconShare } from "../components/common/Icons.jsx";
 import { formatDate, getClassesForDate, getHoliday, getExamForDate, isWeekend, isNonInstructionalDay } from "../utils/academicCalendarUtils.js";
 import { getSubjectStatus } from "../utils/attendanceCalculations.js";
 import { simulateSkipImpact } from "../utils/skipSimulator.js";
@@ -21,6 +21,7 @@ export function DashboardPage() {
     setActiveTab,
     baselineDate,
     isDateInBaseline,
+    openSyncModal,
   } = useApp();
 
   const isEligible = overall.percentage >= threshold;
@@ -104,9 +105,20 @@ export function DashboardPage() {
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             </p>
           </div>
-          <Button variant="outline" size="sm" icon={<IconCalendar size={14} />} onClick={() => setActiveTab("calendar")}>
-            Full Calendar
-          </Button>
+          <div className="dashboard-title-actions">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<IconShare size={14} />}
+              onClick={openSyncModal}
+              title="Share live condition of attendance to any phone or laptop"
+            >
+              Share Live Condition
+            </Button>
+            <Button variant="outline" size="sm" icon={<IconCalendar size={14} />} onClick={() => setActiveTab("calendar")}>
+              Full Calendar
+            </Button>
+          </div>
         </div>
 
         {todayHoliday ? (

@@ -21,6 +21,9 @@ export function SettingsPage() {
     saveSemester,
     deleteSemester,
     currentUser,
+    users,
+    loginUser,
+    deleteUser,
   } = useApp();
 
   // Modals
@@ -210,6 +213,60 @@ export function SettingsPage() {
               {profileSaved && <span className="saved-badge text-success"><IconCheck size={14} /> Saved!</span>}
             </div>
           </form>
+
+          {/* PROFILES LIST & DELETE ACTION */}
+          <div className="settings-profiles-manager">
+            <div className="profiles-manager-header">
+              <h4 className="sub-section-title">All Student Profiles ({users.length})</h4>
+              <Button variant="ghost" size="sm" onClick={() => setIsAuthOpen(true)}>
+                + New Profile
+              </Button>
+            </div>
+            <div className="profiles-mini-list">
+              {users.map((u) => {
+                const isActive = u.id === currentUser?.id;
+                return (
+                  <div key={u.id} className={`profile-mini-row ${isActive ? "active-profile-pill" : ""}`}>
+                    <div className="profile-mini-info">
+                      <span className="profile-avatar-sm">{u.avatarInitials || "U"}</span>
+                      <div>
+                        <strong className="profile-mini-name">{u.name}</strong>
+                        {isActive && <Badge variant="success" size="sm" className="ml-1">Active</Badge>}
+                        <div className="profile-mini-sub">{u.program || u.institution}</div>
+                      </div>
+                    </div>
+                    <div className="profile-mini-actions">
+                      {!isActive && (
+                        <button
+                          type="button"
+                          className="btn-switch-mini"
+                          onClick={() => {
+                            loginUser(u.id);
+                          }}
+                        >
+                          Switch
+                        </button>
+                      )}
+                      {users.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-trash-icon"
+                          title={`Delete profile: ${u.name}`}
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to permanently delete profile "${u.name}"? All subjects, attendance logs, and timetables for this student will be wiped.`)) {
+                              deleteUser(u.id);
+                            }
+                          }}
+                        >
+                          <IconTrash size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* 2. ATTENDANCE CRITERIA & WEEKENDS */}

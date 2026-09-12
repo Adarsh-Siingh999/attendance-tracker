@@ -1,59 +1,39 @@
-# Date Range Leave Simulator (X to Y)
+# Post-Leave Extra Leave Days Allowance (Staying Above 65% and 70%)
 
-## Summary of Changes
-
-Added a new **Date Range Leave (X to Y)** simulation mode to the **"Can I Skip?"** simulator that evaluates whether a student can take leave from Date X to Date Y, assuming 100% attendance from present until departure date X, and reports whether the student will remain eligible upon return, including specific callouts of any subjects dropping below required thresholds.
-
----
-
-### 1. Simulation Engine (`simulateDateRangeLeave`)
-- Located in [skipSimulator.js](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/utils/skipSimulator.js):
-  - **Interim Period (`[Today + 1, X - 1]`)**: Resolves scheduled classes using the academic calendar and timetable and marks them as **100% attended** (+1 attended, +1 conducted).
-  - **Leave Period (`[X, Y]`)**: Resolves scheduled classes across all days in the range (excluding weekends, holidays, and non-instructional days) and marks them as **missed** (+0 attended, +1 conducted).
-  - **Post-Leave Attendance**:
-    $$\text{Final Attended} = \text{Current Attended} + \text{Interim Attended}$$
-    $$\text{Final Conducted} = \text{Current Conducted} + \text{Interim Attended} + \text{Missed in Leave}$$
-    $$\text{Projected Percentage} = \frac{\text{Final Attended}}{\text{Final Conducted}} \times 100$$
-  - **Subject Categorization**:
-    - **Ineligible Subjects**: Specific subjects dropping below the required threshold ($< 75\%$).
-    - **Critical Debarment Risk**: Subjects dropping into the danger zone ($< 65\%$).
-    - **Eligible Subjects**: Subjects that maintain $\ge 75\%$ attendance.
+## Overview
+We enhanced the **Date Range Leave (X to Y)** simulator within the **"Can I Skip"** feature to answer:
+> *"After taking my leave from date $X$ to date $Y$, how many **maximum additional instructional days** can I leave/bunk across the rest of the semester so that **every single subject** still stays above **70%** and above **65%**?"*
 
 ---
 
-### 2. User Interface (`SkipSimulatorPage`)
-- Located in [SkipSimulatorPage.jsx](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/pages/SkipSimulatorPage.jsx):
-  - **Mode Selector**: Added `🗓️ Date Range Leave (X to Y)` button alongside `Skip Tomorrow` and `Single Specific Date`.
-  - **Date Range Inputs**:
-    - Start Date (X): Date leave begins.
-    - End Date (Y): Date leave ends.
-    - Quick range presets: `Next 3 Days`, `Next 5 Days`, `1 Week (7 Days)`, and `2 Weeks`.
-  - **Leave Summary Metrics Strip**:
-    - Total Leave Duration (calendar days)
-    - Instructional Class Days (active teaching days)
-    - Total Classes Missed in Range
-    - Interim Classes Attended prior to leave
-  - **Simulation Verdict Banner**:
-    - Color-coded verdict (Green: `All Eligible`, Yellow: `Shortage Warning`, Red: `Debarment Risk`).
-    - Overall attendance before vs. right after leave (`XX.X% → YY.Y%`).
-  - **Specific Ineligible Subjects Alert Box**:
-    - If any subjects drop below 75%, an alert highlights the **exact course names, course codes, current %, post-leave %, drop %, and classes missed**.
-    - If no subjects drop below threshold, a congratulatory box confirms that all courses remain fully eligible ($\ge 75\%$).
-  - **Complete Subject-by-Subject Impact Breakdown Table**:
-    - Lists all registered courses with Missed Classes, Interim Attended, Current %, Projected %, Drop %, and status badge.
-  - **Collapsible Day-by-Day Leave Itinerary**:
-    - Expandable list showing each day in the range [X, Y], the day of the week, and the specific classes scheduled.
+## What Was Added
+
+### 1. Mathematical Simulation Engine ([`skipSimulator.js`](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/utils/skipSimulator.js))
+- **Day-by-Day Constraint Checker**:
+  - Iterates forward across all scheduled instructional days in `postLeaveDays` (from date $Y + 1$ to `semesterEndDate`).
+  - Simulates missing full instructional days and checks every subject's resulting semester percentage:
+    $$\text{Projected Attended} = \text{Final Semester Attended} - \text{Missed Post-Leave Classes}$$
+    $$\text{Projected Converted \%} = \frac{\text{Projected Attended}}{\text{Final Semester Conducted}} \times 100$$
+  - Stops as soon as any subject dips below the target threshold ($70\%$ or $65\%$).
+- **Bottleneck Subject Detection**:
+  - Identifies which specific subject is the limiting factor (the first course that would breach $70\%$ or $65\%$).
+- **Subject-Level Missable Class Buffer**:
+  - For each individual course, calculates the exact number of classes it can afford to miss:
+    $$\text{Buffer} = \lfloor\text{Final Semester Attended} - (\text{Target \%} / 100) \times \text{Final Semester Conducted}\rfloor$$
 
 ---
 
-### 3. Verification & Testing
-- Added **Test Suite 7** in [testAllNewFeatures.js](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/utils/testAllNewFeatures.js):
-  - Tested leave simulation for 3 subjects (High buffer, fragile margin, low margin).
-  - Verified interim classes (7 classes) are credited as attended.
-  - Verified classes during leave (10 classes) are counted as missed.
-  - Verified `CN301` remains eligible at 85.45%.
-  - Verified `DB201` drops below 75% to 73.33% and is identified in `ineligibleSubjects`.
-  - Verified `OS401` drops to 65.0% and is identified in `ineligibleSubjects`.
-  - Ran full test suite: **427 / 427 tests passed (100%)**.
-  - Production Vite build succeeded with 0 errors.
-  - Pushed commit `7cc766b` to GitHub (`Adarsh-Siingh999/attendance-tracker`).
+### 2. Dedicated UI Section ([`SkipSimulatorPage.jsx`](file:///C:/Users/Adarsh%20Singh/.gemini/antigravity/brain/92c7ac22-4c42-4766-9d32-69ab00208a49/scratch/attendance-tracker/src/pages/SkipSimulatorPage.jsx))
+1. **Post-Leave Extra Leave Allowance Banner**:
+   - **Target $\ge 70\%$ Card**: Displays the maximum number of instructional days you can leave post-leave, with status pill and callout of the bottleneck subject.
+   - **Critical Limit $\ge 65\%$ Card**: Displays the maximum number of instructional days you can leave before reaching debarment territory, with status pill and limiting subject.
+2. **Subject Breakdown Table Enhanced**:
+   - Added **Post-Leave Buffer ($\ge 70\%$)**: Shows exact individual classes each subject can spare.
+   - Added **Post-Leave Buffer ($\ge 65\%$)**: Shows critical debarment safety margin per subject.
+
+---
+
+## Verification & Deployment
+- **Unit Tests**: All **431 unit tests** passing (`npm test` exited 0).
+- **Production Build**: `npx vite build` completed cleanly.
+- **Git Repository**: Pushed to `origin main` (commit `b9c06ef`).

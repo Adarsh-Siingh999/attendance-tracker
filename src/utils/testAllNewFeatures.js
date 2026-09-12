@@ -22,6 +22,7 @@ import {
   DAY_NAMES,
 } from "../services/timetableAiService.js";
 import { simulateDateRangeLeave } from "./skipSimulator.js";
+import { shareLiveAttendanceCondition } from "../services/crossDeviceSyncService.js";
 
 console.log("================================================================================");
 console.log("🎯 RUNNING COMPREHENSIVE VERIFICATION SUITE: ALL NEW FEATURES & REBUILD AUDIT");
@@ -581,6 +582,115 @@ assert(Boolean(leaveRangeRes.postLeaveAllowance65.bottleneckSubject), "Identifie
 // Check subject-level missable class buffers
 assert(cnResult.maxMissableClasses70 >= 0, "CN301 reports maxMissableClasses70");
 assert(cnResult.maxMissableClasses65 >= cnResult.maxMissableClasses70, "CN301 maxMissableClasses65 >= maxMissableClasses70");
+
+// ============================================================================
+// TEST SUITE 8: USER PROFILE DELETION & CLEANUP
+// ============================================================================
+console.log("\n--- 8. Testing User Profile Deletion Feature ---");
+
+// 1. Create a dummy profile to delete
+const tempUser = storageService.createUser({
+  name: "Temporary Profile",
+  email: "temp@galgotias.edu",
+  institution: "Galgotias University",
+  program: "B.Tech IT",
+  template: "clean",
+});
+
+assert(Boolean(tempUser && tempUser.id), "Created temporary user profile for deletion test");
+const usersBefore = storageService.getUsers();
+assert(usersBefore.some((u) => u.id === tempUser.id), "Temporary user is in users list");
+
+// Verify profile partition exists
+const profileBefore = storageService.getProfile(tempUser.id);
+assert(Boolean(profileBefore && profileBefore.fullName === "Temporary Profile"), "Temporary user profile partition exists in storage");
+
+// 2. Delete the profile
+const deleteRes = storageService.deleteUser(tempUser.id);
+assert(deleteRes.success === true, "deleteUser returned success: true");
+
+// 3. Verify user removed from users list
+const usersAfter = storageService.getUsers();
+assert(!usersAfter.some((u) => u.id === tempUser.id), "Temporary user successfully removed from users list");
+
+// 4. Verify partition data is gone/reset
+const profileAfter = storageService.getProfile(tempUser.id);
+// When partition is deleted, getProfile returns SEED_PROFILE fallback or null
+assert(profileAfter.fullName !== "Temporary Profile", "Temporary user storage partition successfully purged");
+
+// 5. Verify response object
+assert(typeof deleteRes === "object", "deleteUser returns response object");
+
+// ============================================================================
+// TEST SUITE 9: TIMETABLE UPDATE EFFECT ON ATTENDANCE & LIVE CONDITION SHARE
+// ============================================================================
+console.log("\n--- 9. Testing Timetable Updates Effect & Live Condition Share ---");
+
+// Part 1: Check whether updating classes in timetable affects recorded overall attendance
+// Setup a test student with 1 live attendance mark on 2026-09-10 (Thursday)
+const testUserTT = storageService.createUser({
+  name: "Timetable Test Student",
+  institution: "Galgotias University",
+  template: "clean",
+});
+
+const ttSem = storageService.getActiveSemester();
+const subA = storageService.saveSubject({
+  name: "Algorithms",
+  code: "CS301",
+  components: { Lecture: { attended: 10, conducted: 10 } },
+});
+
+// Original timetable: Thursday (dayIndex 4) has 1 class of CS301
+const initialTT = {
+  4: [{ start: "09:00", end: "10:00", subject: "Algorithms", code: "CS301", type: "Lecture" }],
+};
+storageService.saveTimetable(ttSem.id, initialTT);
+
+// Mark attendance on Thursday 2026-09-10 with snapshot
+storageService.setAttendanceStatus(ttSem.id, "2026-09-10", 0, "present", initialTT[4][0]);
+
+// Calculate attendance with original timetable: 10 baseline + 1 live = 11 / 11 = 100%
+const recordsInitial = storageService.getAttendanceRecords(ttSem.id);
+const presentInitial = Object.values(recordsInitial["2026-09-10"]).filter(
+  (r) => (typeof r === "object" ? r.status : r) === "present"
+).length;
+assert(presentInitial === 1, "Recorded 1 present class on Thursday");
+
+// Now update timetable: add 3 more periods to Thursday (e.g. from 1 period to 4 periods)
+const expandedTT = {
+  4: [
+    { start: "09:00", end: "10:00", subject: "Algorithms", code: "CS301", type: "Lecture" },
+    { start: "10:00", end: "11:00", subject: "Algorithms", code: "CS301", type: "Lecture" },
+    { start: "11:00", end: "12:00", subject: "Algorithms", code: "CS301", type: "Lecture" },
+    { start: "12:00", end: "13:00", subject: "Algorithms", code: "CS301", type: "Lecture" },
+  ],
+};
+storageService.saveTimetable(ttSem.id, expandedTT);
+
+// Verify that past recorded attendance does NOT artificially increase simply by editing timetable!
+// Past attendance only increases when a class is actually conducted & marked present.
+const recordsAfterTTUpdate = storageService.getAttendanceRecords(ttSem.id);
+const presentAfterTTUpdate = Object.values(recordsAfterTTUpdate["2026-09-10"]).filter(
+  (r) => (typeof r === "object" ? r.status : r) === "present"
+).length;
+
+assert(
+  presentAfterTTUpdate === 1,
+  "Updating classes in timetable preserves existing marked attendance without spurious auto-increase"
+);
+
+// Part 2: Test function to share live condition of attendance to any device
+const liveShareRes = await shareLiveAttendanceCondition({
+  studentName: "Timetable Test Student",
+  overallPercentage: 100,
+});
+
+assert(typeof liveShareRes === "object", "shareLiveAttendanceCondition returns an object");
+assert(Boolean(liveShareRes.url), "shareLiveAttendanceCondition generates valid URL");
+assert(liveShareRes.url.includes("#sync=gz_"), "Share URL contains compressed live condition token (#sync=gz_...)");
+assert(liveShareRes.text.includes("Current Live Attendance Condition"), "Share text describes live condition");
+assert(liveShareRes.text.includes("100.0%"), "Share text reports accurate overall attendance percentage");
 
 console.log("\n================================================================================");
 console.log(`🎉 ALL NEW FEATURE TESTS PASSED: ${passed}/${total} (100%)`);

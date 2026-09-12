@@ -21,8 +21,9 @@ export function AppProvider({ children }) {
   const [users, setUsers] = useState(() => storageService.getUsers());
   const [currentUser, setCurrentUser] = useState(() => storageService.getCurrentUser());
 
-  // Cross-device sync incoming notification
+  // Cross-device sync incoming notification & modal
   const [syncNotification, setSyncNotification] = useState(null);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   // Core Storage Data for Current User
   const [profile, setProfile] = useState(() => storageService.getProfile());
@@ -119,6 +120,14 @@ export function AppProvider({ children }) {
     const newUser = storageService.createUser(userData);
     refreshState();
     return newUser;
+  };
+
+  const handleDeleteUser = (userId) => {
+    const res = storageService.deleteUser(userId);
+    if (res.success) {
+      refreshState();
+    }
+    return res;
   };
 
   const handleLogout = () => {
@@ -561,6 +570,7 @@ export function AppProvider({ children }) {
     loginWithGoogle: handleGoogleLogin,
     logoutUser: handleLogout,
     createUser: handleCreateUser,
+    deleteUser: handleDeleteUser,
     profile,
     updateProfile,
 
@@ -599,9 +609,13 @@ export function AppProvider({ children }) {
     threshold,
     criticalThreshold,
 
-    // Cross-Device Sync Notification
+    // Cross-Device Sync Notification & Modal
     syncNotification,
     clearSyncNotification: () => setSyncNotification(null),
+    isSyncModalOpen,
+    setIsSyncModalOpen,
+    openSyncModal: () => setIsSyncModalOpen(true),
+    closeSyncModal: () => setIsSyncModalOpen(false),
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

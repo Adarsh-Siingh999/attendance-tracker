@@ -119,6 +119,18 @@ function safeSet(key, value) {
   }
 }
 
+function safeRemove(key) {
+  try {
+    if (typeof localStorage === "undefined") {
+      delete memoryFallbackStore[key];
+      return;
+    }
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.error(`[StorageService] Failed to remove ${key}:`, err);
+  }
+}
+
 function dispatchEvent(eventName, detail = null) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(eventName, { detail }));
@@ -422,6 +434,88 @@ export const storageService = {
     // Switch to new user
     this.login(id);
     return newUser;
+  },
+
+  /**
+   * Permanently deletes a user profile and cleans up all isolated user partition keys.
+   * If the active user is deleted, automatically switches to the first remaining user.
+   *
+   * @param {string} userId - ID of user to delete
+   * @returns {{ success: boolean, remainingUsers: Array, activeUserId: string }}
+   */
+  deleteUser(userId) {
+    if (!userId) {
+      return { success: false, error: "User ID is required" };
+    }
+
+    let users = this.getUsers();
+    const userToDelete = users.find((u) => u.id === userId);
+    if (!userToDelete) {
+      return { success: false, error: "User profile not found" };
+    }
+
+    // Must prevent deleting if only 1 profile exists
+    if (users.length <= 1) {
+      return { success: false, error: "Cannot delete the only remaining profile. Create or switch to another profile first." };
+    }
+
+    // 1. Remove all partitioned storage keys for this user
+    const partitionResources = [
+      "profile",
+      "semesters",
+      "active_semester",
+      "subjects",
+      "timetables",
+      "calendars",
+      "attendance_records",
+      "public_settings",
+    ];
+
+    for (const res of partitionResources) {
+      safeRemove(this.uKey(res, userId));
+    }
+
+    // 2. Also remove any custom key matching at_saas_u_<userId>_ from localStorage / memory
+    if (typeof localStorage !== "undefined") {
+      const prefix = `at_saas_u_${userId}_`;
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => safeRemove(k));
+    }
+
+    // 3. Remove from credentials store if registered
+    const creds = this.getCredentials();
+    let credsChanged = false;
+    for (const [em, acc] of Object.entries(creds)) {
+      if (acc.userId === userId) {
+        delete creds[em];
+        credsChanged = true;
+      }
+    }
+    if (credsChanged) {
+      safeSet(GLOBAL_KEYS.CREDENTIALS, creds);
+    }
+
+    // 4. Remove user from USERS array
+    users = users.filter((u) => u.id !== userId);
+    safeSet(GLOBAL_KEYS.USERS, users);
+
+    // 5. If deleted user was currently active, switch to first remaining user
+    const currentActiveId = this.getCurrentUserId();
+    let nextActiveId = currentActiveId;
+    if (currentActiveId === userId) {
+      nextActiveId = users[0].id;
+      safeSet(GLOBAL_KEYS.CURRENT_USER_ID, nextActiveId);
+      dispatchEvent(STORAGE_EVENTS.USER_CHANGED, { userId: nextActiveId });
+    }
+
+    dispatchEvent(STORAGE_EVENTS.DATA_REFRESHED);
+    return { success: true, remainingUsers: users, activeUserId: nextActiveId, deletedUser: userToDelete };
   },
 
   getCredentials() {

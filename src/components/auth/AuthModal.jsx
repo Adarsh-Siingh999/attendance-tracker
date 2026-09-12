@@ -3,10 +3,10 @@ import { useApp } from "../../context/AppContext.jsx";
 import { Modal } from "../common/Modal.jsx";
 import { Button } from "../common/Button.jsx";
 import { Badge } from "../common/Badge.jsx";
-import { IconCheck, IconPlus } from "../common/Icons.jsx";
+import { IconCheck, IconPlus, IconTrash } from "../common/Icons.jsx";
 
 export function AuthModal({ isOpen, onClose }) {
-  const { users, currentUser, loginUser, createUser } = useApp();
+  const { users, currentUser, loginUser, createUser, deleteUser } = useApp();
 
   const [activeTab, setActiveTab] = useState("switch"); // "switch" | "create"
   const [name, setName] = useState("");
@@ -14,10 +14,26 @@ export function AuthModal({ isOpen, onClose }) {
   const [institution, setInstitution] = useState("Galgotias University");
   const [program, setProgram] = useState("B.Tech Computer Science (AIML)");
   const [template, setTemplate] = useState("galgotias-sem5");
+  const [deleteTargetUser, setDeleteTargetUser] = useState(null);
 
   const handleSelectUser = (userId) => {
     loginUser(userId);
     onClose();
+  };
+
+  const handleDeleteClick = (e, user) => {
+    e.stopPropagation();
+    if (users.length <= 1) {
+      alert("Cannot delete the only profile. Create or switch to another profile first.");
+      return;
+    }
+    setDeleteTargetUser(user);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTargetUser) return;
+    deleteUser(deleteTargetUser.id);
+    setDeleteTargetUser(null);
   };
 
   const handleCreateUser = (e) => {
@@ -81,11 +97,42 @@ export function AuthModal({ isOpen, onClose }) {
                       {u.institution || "Galgotias University"} • {u.program || "Student"}
                     </span>
                   </div>
-                  {isActive && <IconCheck size={18} className="text-success ml-auto" />}
+                  {isActive && <IconCheck size={18} className="text-success active-check-icon" />}
+                  {users.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn-delete-profile-icon"
+                      title={`Delete ${u.name}'s profile`}
+                      onClick={(e) => handleDeleteClick(e, u)}
+                    >
+                      <IconTrash size={15} />
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* Delete Confirmation Warning Box */}
+          {deleteTargetUser && (
+            <div className="profile-delete-confirm-box">
+              <div className="confirm-text-group">
+                <strong className="confirm-title">Delete profile "{deleteTargetUser.name}"?</strong>
+                <p className="confirm-desc">
+                  This will permanently delete this student's attendance records, subjects, and timetable. This cannot be undone.
+                  {deleteTargetUser.id === currentUser?.id && " Since this is the active profile, the app will switch to another profile."}
+                </p>
+              </div>
+              <div className="confirm-btn-row">
+                <Button variant="secondary" size="sm" onClick={() => setDeleteTargetUser(null)}>
+                  Cancel
+                </Button>
+                <Button variant="danger" size="sm" onClick={handleConfirmDelete}>
+                  Permanently Delete
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="modal-actions-row">
             <Button variant="secondary" onClick={onClose}>

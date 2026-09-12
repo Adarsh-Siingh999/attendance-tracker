@@ -17,11 +17,13 @@ export function Header() {
     logoutUser,
     syncNotification,
     clearSyncNotification,
+    isSyncModalOpen,
+    setIsSyncModalOpen,
+    openSyncModal,
   } = useApp();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   const titles = {
     dashboard: { title: "Dashboard", sub: "Live attendance overview & forecasting" },
