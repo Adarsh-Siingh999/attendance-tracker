@@ -193,6 +193,7 @@ export async function callClaudeApi({
           "x-api-key": key,
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
+          "anthropic-beta": "pdfs-2024-09-25",
         },
         body: JSON.stringify(bodyPayload),
       });
@@ -286,28 +287,42 @@ Respond with ONLY a valid JSON object:
 }`;
 
 /**
- * Scan a timetable image (photo/screenshot) using Claude Vision
+ * Scan a timetable image (photo/screenshot) or PDF document using Claude
  */
 export async function analyzeTimetableImageWithClaude(base64Data, mimeType = "image/jpeg", apiKey = "") {
   // Clean base64 header if present
   const cleanBase64 = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
   const cleanMime = (mimeType || "image/jpeg").split(";")[0].trim();
+  const isPdf = cleanMime === "application/pdf";
+
+  const contentBlock = isPdf
+    ? {
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: cleanBase64,
+        },
+      }
+    : {
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: cleanMime,
+          data: cleanBase64,
+        },
+      };
 
   const messages = [
     {
       role: "user",
       content: [
-        {
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: cleanMime,
-            data: cleanBase64,
-          },
-        },
+        contentBlock,
         {
           type: "text",
-          text: "Extract the complete class timetable from this schedule image into structured JSON according to the instructions.",
+          text: isPdf
+            ? "Extract the complete class timetable from this schedule PDF document into structured JSON according to the instructions."
+            : "Extract the complete class timetable from this schedule image into structured JSON according to the instructions.",
         },
       ],
     },
@@ -459,27 +474,41 @@ Return ONLY valid JSON matching this exact structure:
 }`;
 
 /**
- * Extract academic calendar events from an image (circular photo, chart screenshot, scan) using Claude Vision
+ * Extract academic calendar events from an image (circular photo, chart screenshot) or PDF document using Claude
  */
 export async function analyzeCalendarImageWithClaude(base64Data, mimeType = "image/jpeg", apiKey = "") {
   const cleanBase64 = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
   const cleanMime = (mimeType || "image/jpeg").split(";")[0].trim();
+  const isPdf = cleanMime === "application/pdf";
+
+  const contentBlock = isPdf
+    ? {
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: cleanBase64,
+        },
+      }
+    : {
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: cleanMime,
+          data: cleanBase64,
+        },
+      };
 
   const messages = [
     {
       role: "user",
       content: [
-        {
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: cleanMime,
-            data: cleanBase64,
-          },
-        },
+        contentBlock,
         {
           type: "text",
-          text: "Extract all academic calendar information (semester dates, holidays, exams, non-instructional days) from this circular image.",
+          text: isPdf
+            ? "Extract all academic calendar information (semester dates, holidays, exams, non-instructional days) from this academic calendar PDF document into structured JSON according to the instructions."
+            : "Extract all academic calendar information (semester dates, holidays, exams, non-instructional days) from this circular image into structured JSON according to the instructions.",
         },
       ],
     },
@@ -495,6 +524,8 @@ export async function analyzeCalendarImageWithClaude(base64Data, mimeType = "ima
   const parsed = extractJsonFromAiResponse(response.text);
   return sanitizeExtractedCalendar(parsed);
 }
+
+export const analyzeCalendarDocumentWithClaude = analyzeCalendarImageWithClaude;
 
 /**
  * Extract academic calendar events from pasted circular text or syllabus notes using Claude

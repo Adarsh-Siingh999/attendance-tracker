@@ -19,6 +19,7 @@ import {
   sanitizeExtractedTimetable,
   sanitizeExtractedCalendar,
 } from "../services/aiService.js";
+import { extractTextFromPdfBuffer } from "./pdfExtractor.js";
 
 let passed = 0;
 let failed = 0;
@@ -252,6 +253,45 @@ assertEqual(sanitizedCalendar.examinations[0].startDate, "2027-03-15", "Exam sta
 assertEqual(sanitizedCalendar.examinations[0].countsAsClass, false, "Theory exam does not count as regular class");
 assertEqual(sanitizedCalendar.nonInstructionalDays.length, 1, "Sanitized 1 non-instructional event");
 assertEqual(sanitizedCalendar.weekends.length, 2, "Configured weekend days [0, 6]");
+
+// 9. PDF Document Text Extractor Tests
+console.log("\n9. PDF Document Text Extractor Tests:");
+// Create a synthetic PDF buffer containing BT ... ET streams
+const syntheticPdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 200 >>
+stream
+BT
+/F1 12 Tf
+(Galgotias University Academic Calendar Autumn 2026) Tj
+15/08/2026 - (Independence Day) Tj
+[(Mid-Term) 10 (Examinations) -5 (21/10/2026)] TJ
+ET
+endstream
+endobj
+xref
+0 5
+trailer
+<< /Root 1 0 R >>
+%%EOF`;
+
+const encoder = new TextEncoder();
+const pdfBuffer = encoder.encode(syntheticPdf);
+
+const extractedPdfText = await extractTextFromPdfBuffer(pdfBuffer);
+assert(Boolean(extractedPdfText), "extractTextFromPdfBuffer extracts text from PDF stream");
+assert(extractedPdfText.includes("Galgotias University Academic Calendar"), "Extracted header from PDF stream");
+assert(extractedPdfText.includes("Independence Day"), "Extracted holiday text from PDF stream");
+assert(extractedPdfText.includes("Mid-Term"), "Extracted TJ array string from PDF stream");
 
 console.log(`\n=== TEST RESULTS: ${passed}/${passed + failed} PASSED ===\n`);
 

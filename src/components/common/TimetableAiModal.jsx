@@ -100,11 +100,14 @@ export function TimetableAiModal({
 
     files.forEach((file) => {
       const reader = new FileReader();
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const mime = isPdf ? "application/pdf" : (file.type || "image/jpeg");
+
       reader.onload = (ev) => {
         newPreviews.push({
           data: ev.target?.result || "",
           name: file.name,
-          type: file.type || "image/jpeg",
+          type: mime,
         });
         loadedCount++;
         if (loadedCount === files.length) {
@@ -563,7 +566,14 @@ export function TimetableAiModal({
                   <div className="multi-preview-grid">
                     {imagePreviews.map((img, idx) => (
                       <div key={idx} className="preview-grid-item">
-                        <img src={img.data} alt={`Timetable ${idx + 1}`} className="timetable-img-thumbnail" />
+                        {img.type === "application/pdf" || img.name?.toLowerCase().endsWith(".pdf") ? (
+                          <div style={{ height: "100px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#ede9fe", borderRadius: "8px", border: "1px solid #c4b5fd" }}>
+                            <span style={{ fontSize: "28px" }}>📄</span>
+                            <span style={{ fontSize: "11px", color: "#6d28d9", fontWeight: "600", marginTop: "4px" }}>PDF Timetable</span>
+                          </div>
+                        ) : (
+                          <img src={img.data} alt={`Timetable ${idx + 1}`} className="timetable-img-thumbnail" />
+                        )}
                         <div className="preview-grid-meta">
                           <span className="thumbnail-name">{img.name || `Photo ${idx + 1}`}</span>
                           <button
@@ -581,33 +591,33 @@ export function TimetableAiModal({
 
                   <div className="preview-actions-row">
                     <label className="btn-add-more-photo">
-                      <span>+ Add More Photos</span>
+                      <span>+ Add More Photos / PDFs</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept=".pdf,application/pdf,image/*"
                         multiple
                         className="hidden-file-input"
                         onChange={handleFileChange}
                       />
                     </label>
-                    <span className="photo-count-pill">{imagePreviews.length} photo(s) queued</span>
+                    <span className="photo-count-pill">{imagePreviews.length} item(s) queued</span>
                   </div>
                 </div>
               ) : (
                 <label className="dropzone-label">
                   <IconUpload size={48} className="dropzone-icon text-primary" />
-                  <span className="dropzone-main-text">Upload or Snap Timetable Photos</span>
+                  <span className="dropzone-main-text">Upload Timetable Photos or PDF Schedule</span>
                   <span className="dropzone-sub-text">
-                    Drop single or multiple photos / screenshots (PNG, JPG, WEBP). Select Monday to Sunday or full weekly grids.
+                    Drop single or multiple photos, screenshots, or PDF schedule documents (.pdf, .png, .jpg, .webp).
                   </span>
                   <div className="dropzone-btn-group">
                     <span className="saas-btn btn-primary btn-md">
-                      <IconCamera size={16} /> Choose Image(s) / Snap Photo
+                      <IconCamera size={16} /> Choose Image(s) / PDF / Snap
                     </span>
                   </div>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept=".pdf,application/pdf,image/*"
                     multiple
                     className="hidden-file-input"
                     onChange={handleFileChange}

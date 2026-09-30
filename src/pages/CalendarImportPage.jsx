@@ -11,6 +11,7 @@ import {
   IconAlertTriangle,
 } from "../components/common/Icons.jsx";
 import { extractEventsFromText, GALGOTIAS_SEM5_2026_EVENTS } from "../utils/calendarParser.js";
+import { extractTextFromPdfBuffer } from "../utils/pdfExtractor.js";
 import {
   getStoredClaudeApiKey,
   saveStoredClaudeApiKey,
@@ -39,9 +40,10 @@ export function CalendarImportPage() {
   const [testResult, setTestResult] = useState(null);
   const [keySavedMessage, setKeySavedMessage] = useState("");
 
-  // Circular / Notice Image state
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
+  // Document (PDF or Circular Image) state
+  const [docFile, setDocFile] = useState(null);
+  const [docPreview, setDocPreview] = useState("");
+  const [isPdfFile, setIsPdfFile] = useState(false);
 
   const handleSaveClaudeKey = () => {
     saveStoredClaudeApiKey(claudeKey);
@@ -61,14 +63,17 @@ export function CalendarImportPage() {
     setTestResult(res);
   };
 
-  const handleImageFileChange = (e) => {
+  const handleDocumentFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImageFile(file);
+    setDocFile(file);
     setErrorMessage("");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    setIsPdfFile(isPdf);
+
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setImagePreview(ev.target?.result || "");
+      setDocPreview(ev.target?.result || "");
     };
     reader.readAsDataURL(file);
   };
@@ -116,17 +121,17 @@ export function CalendarImportPage() {
       weekends: parsedResult.weekends,
     });
     setParseStats({
-      source: `${sourceLabel} (Claude 3.5 Sonnet Vision & AI)`,
+      source: `${sourceLabel} (Claude 3.5 Sonnet Vision & Document AI)`,
       holidays: (parsedResult.holidays || []).length,
       exams: (parsedResult.examinations || []).length,
       other: (parsedResult.nonInstructionalDays || []).length,
     });
   };
 
-  // Scan circular photo or screenshot with Claude Vision
-  const handleScanImageWithClaude = async () => {
-    if (!imagePreview) {
-      setErrorMessage("Please select or capture a circular or academic calendar image first.");
+  // Scan PDF document or circular photo with Claude
+  const handleScanDocumentWithClaude = async () => {
+    if (!docPreview) {
+      setErrorMessage("Please select an academic calendar PDF or circular image first.");
       return;
     }
     setIsProcessing(true);
@@ -135,11 +140,47 @@ export function CalendarImportPage() {
     setParseStats(null);
 
     try {
-      const mime = imageFile?.type || "image/jpeg";
-      const result = await analyzeCalendarImageWithClaude(imagePreview, mime, claudeKey);
-      processAiExtractedCalendar(result, imageFile?.name || "Uploaded Circular Image");
+      const mime = isPdfFile ? "application/pdf" : (docFile?.type || "image/jpeg");
+      const result = await analyzeCalendarImageWithClaude(docPreview, mime, claudeKey);
+      processAiExtractedCalendar(result, docFile?.name || (isPdfFile ? "Uploaded Academic Calendar PDF" : "Uploaded Circular Image"));
     } catch (err) {
-      setErrorMessage(`Claude Vision Error: ${err.message || "Failed to scan calendar image."}`);
+      setErrorMessage(`Claude AI Document Error: ${err.message || "Failed to scan calendar document."}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Extract text from PDF locally (offline fallback)
+  const handleExtractPdfTextLocally = async () => {
+    if (!docFile) return;
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setParseStats(null);
+
+    try {
+      const buffer = await docFile.arrayBuffer();
+      const text = await extractTextFromPdfBuffer(buffer);
+      if (!text || text.trim().length < 15) {
+        throw new Error(
+          "Could not extract direct text streams from this PDF. Please click 'Extract Calendar with Claude AI', which runs full visual OCR and layout intelligence on PDFs."
+        );
+      }
+      const parsed = extractEventsFromText(text, 2026);
+      if (parsed.length === 0) {
+        throw new Error(
+          "Extracted text did not contain recognized date patterns. Please use 'Extract Calendar with Claude AI' for advanced schedule comprehension."
+        );
+      }
+      setExtractedEvents(parsed);
+      setParseStats({
+        source: `${docFile.name} (Local PDF Text Parser - ${parsed.length} events found)`,
+        holidays: parsed.filter((e) => e.type === "holiday").length,
+        exams: parsed.filter((e) => e.type === "exam").length,
+        other: parsed.filter((e) => e.type === "non-instructional").length,
+      });
+    } catch (err) {
+      setErrorMessage(err.message || "Failed to parse PDF text locally.");
     } finally {
       setIsProcessing(false);
     }
@@ -437,7 +478,7 @@ export function CalendarImportPage() {
           className={`mode-tab ${importMode === "image" ? "active" : ""}`}
           onClick={() => setImportMode("image")}
         >
-          <IconCamera size={16} /> 📷 Claude Vision (Circular Photo)
+          <IconUpload size={16} /> 📄 PDF & Circular Scanner
         </button>
         <button
           type="button"
@@ -472,51 +513,108 @@ export function CalendarImportPage() {
         </div>
       )}
 
-      {/* IMAGE / CIRCULAR SCANNER MODE (CLAUDE VISION) */}
+      {/* DOCUMENT / PDF & CIRCULAR SCANNER MODE */}
       {importMode === "image" && (
         <div className="ai-upload-card">
           <div className="upload-dropzone" style={{ padding: "24px 16px" }}>
-            {imagePreview ? (
-              <div style={{ maxWidth: "480px", margin: "0 auto", textAlign: "center" }}>
-                <img
-                  src={imagePreview}
-                  alt="Calendar Circular Preview"
-                  style={{ maxHeight: "260px", maxWidth: "100%", borderRadius: "8px", objectFit: "contain", border: "1px solid var(--border-color)" }}
-                />
-                <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--text-secondary)" }}>
-                  {imageFile?.name || "Selected Circular Image"}
-                </p>
-                <div style={{ marginTop: "16px", display: "flex", gap: "10px", justifyContent: "center" }}>
-                  <Button variant="primary" size="md" onClick={handleScanImageWithClaude} disabled={isProcessing}>
-                    <IconSparkles size={16} /> {isProcessing ? "Scanning with Claude Vision..." : "Extract Calendar with Claude Vision"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onClick={() => {
-                      setImagePreview("");
-                      setImageFile(null);
-                    }}
-                  >
-                    Change Image
-                  </Button>
-                </div>
+            {docPreview ? (
+              <div style={{ maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
+                {isPdfFile ? (
+                  <div className="pdf-preview-box" style={{ background: "var(--bg-card-subtle, #f9fafb)", borderRadius: "10px", padding: "16px", border: "1px solid var(--border-color)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left" }}>
+                        <span style={{ fontSize: "28px" }}>📄</span>
+                        <div>
+                          <strong style={{ fontSize: "14px", display: "block" }}>{docFile?.name || "Academic_Calendar.pdf"}</strong>
+                          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            {docFile ? `${(docFile.size / 1024).toFixed(1)} KB` : "PDF Document"} • Official Circular
+                          </span>
+                        </div>
+                      </div>
+                      <span className="agent-badge" style={{ background: "#ede9fe", color: "#6d28d9" }}>PDF READY</span>
+                    </div>
+
+                    {/* PDF OBJECT PREVIEW */}
+                    <object
+                      data={docPreview}
+                      type="application/pdf"
+                      width="100%"
+                      height="300px"
+                      style={{ borderRadius: "8px", border: "1px solid var(--border-color)", background: "#ffffff" }}
+                    >
+                      <div style={{ padding: "24px", color: "var(--text-secondary)", fontSize: "13px" }}>
+                        📄 <strong>{docFile?.name}</strong> loaded. PDF preview available in full browser view. Ready to extract events below!
+                      </div>
+                    </object>
+
+                    <div style={{ marginTop: "16px", display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+                      <Button variant="primary" size="md" onClick={handleScanDocumentWithClaude} disabled={isProcessing}>
+                        <IconSparkles size={16} /> {isProcessing ? "Scanning PDF with Claude AI..." : "Extract Calendar with Claude AI (PDF Document)"}
+                      </Button>
+                      <Button variant="outline" size="md" onClick={handleExtractPdfTextLocally} disabled={isProcessing}>
+                        📋 Extract Text & Local Parse
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        onClick={() => {
+                          setDocPreview("");
+                          setDocFile(null);
+                          setIsPdfFile(false);
+                        }}
+                      >
+                        Change File
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <img
+                      src={docPreview}
+                      alt="Calendar Circular Preview"
+                      style={{ maxHeight: "260px", maxWidth: "100%", borderRadius: "8px", objectFit: "contain", border: "1px solid var(--border-color)" }}
+                    />
+                    <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--text-secondary)" }}>
+                      {docFile?.name || "Selected Circular Image"}
+                    </p>
+                    <div style={{ marginTop: "16px", display: "flex", gap: "10px", justifyContent: "center" }}>
+                      <Button variant="primary" size="md" onClick={handleScanDocumentWithClaude} disabled={isProcessing}>
+                        <IconSparkles size={16} /> {isProcessing ? "Scanning with Claude Vision..." : "Extract Calendar with Claude Vision"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="md"
+                        onClick={() => {
+                          setDocPreview("");
+                          setDocFile(null);
+                          setIsPdfFile(false);
+                        }}
+                      >
+                        Change Image
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <>
-                <IconCamera size={48} className="upload-icon text-primary" />
-                <h3>Photograph or Upload Academic Circular</h3>
+                <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "36px" }}>📄</span>
+                  <IconCamera size={36} className="upload-icon text-primary" />
+                </div>
+                <h3>Upload Academic Calendar PDF or Circular Photo</h3>
                 <p>
-                  Claude 3.5 Sonnet Vision reads official notifications, holiday lists, and exam schedules from photos or screenshots (PNG, JPG, WEBP).
+                  Upload your university&apos;s official PDF circular, examination schedule, or photo notice (.pdf, .png, .jpg, .webp).
+                  Claude 3.5 Sonnet extracts semester start/end dates, holidays, and exam periods automatically.
                 </p>
                 <div className="upload-btn-row">
                   <label className="saas-btn btn-primary btn-md cursor-pointer">
-                    <IconUpload size={16} /> Choose Image / Snap Photo
+                    <IconUpload size={16} /> Choose PDF / Image File
                     <input
                       type="file"
-                      accept="image/*"
+                      accept=".pdf,application/pdf,image/*"
                       className="hidden-file-input"
-                      onChange={handleImageFileChange}
+                      onChange={handleDocumentFileChange}
                     />
                   </label>
                 </div>
