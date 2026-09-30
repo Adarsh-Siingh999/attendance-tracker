@@ -1,4 +1,5 @@
 {
-  "summary":  "DeviceSyncModal component providing one-click live sync link generation, QR code scanning, WhatsApp/AirDrop sharing, and cross-device sync instructions.",
-  "updatedAt":  "2026-09-03T15:00:43.998944Z"
+  "summary": "Update DeviceSyncModal to provide dual-sharing modes: (1) Share Live Condition to mirror current attendance records, timetable, and percentages on another device, and (2) Share Fresh Web App to send a clean link to someone new with zero profiles.",
+  "updatedAt": "2026-09-12T05:40:30.580167100Z",
+  "userFacing": true
 }

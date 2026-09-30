@@ -23,17 +23,17 @@ export function AuthModal({ isOpen, onClose }) {
 
   const handleDeleteClick = (e, user) => {
     e.stopPropagation();
-    if (users.length <= 1) {
-      alert("Cannot delete the only profile. Create or switch to another profile first.");
-      return;
-    }
     setDeleteTargetUser(user);
   };
 
   const handleConfirmDelete = () => {
     if (!deleteTargetUser) return;
+    const isLast = users.length <= 1;
     deleteUser(deleteTargetUser.id);
     setDeleteTargetUser(null);
+    if (isLast) {
+      onClose();
+    }
   };
 
   const handleCreateUser = (e) => {
@@ -98,16 +98,14 @@ export function AuthModal({ isOpen, onClose }) {
                     </span>
                   </div>
                   {isActive && <IconCheck size={18} className="text-success active-check-icon" />}
-                  {users.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn-delete-profile-icon"
-                      title={`Delete ${u.name}'s profile`}
-                      onClick={(e) => handleDeleteClick(e, u)}
-                    >
-                      <IconTrash size={15} />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn-delete-profile-icon"
+                    title={`Delete ${u.name}'s profile`}
+                    onClick={(e) => handleDeleteClick(e, u)}
+                  >
+                    <IconTrash size={15} />
+                  </button>
                 </div>
               );
             })}
@@ -119,8 +117,16 @@ export function AuthModal({ isOpen, onClose }) {
               <div className="confirm-text-group">
                 <strong className="confirm-title">Delete profile "{deleteTargetUser.name}"?</strong>
                 <p className="confirm-desc">
-                  This will permanently delete this student's attendance records, subjects, and timetable. This cannot be undone.
-                  {deleteTargetUser.id === currentUser?.id && " Since this is the active profile, the app will switch to another profile."}
+                  {users.length <= 1 ? (
+                    <span style={{ color: "var(--danger, #dc2626)", fontWeight: 600 }}>
+                      ⚠️ This is your only remaining profile. Deleting it will leave 0 profiles and return you to the onboarding screen. All attendance logs and timetable for this student will be wiped.
+                    </span>
+                  ) : (
+                    <>
+                      This will permanently delete this student&apos;s attendance records, subjects, and timetable. This cannot be undone.
+                      {deleteTargetUser.id === currentUser?.id && " Since this is the active profile, the app will switch to another profile."}
+                    </>
+                  )}
                 </p>
               </div>
               <div className="confirm-btn-row">

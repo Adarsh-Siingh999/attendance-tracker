@@ -3,13 +3,14 @@ import { useApp } from "../../context/AppContext.jsx";
 import { Button } from "../common/Button.jsx";
 
 export function AuthPage() {
-  const { authenticateUser, registerUser, loginWithGoogle } = useApp();
+  const { users, authenticateUser, registerUser, loginWithGoogle, seedDemoUser } = useApp();
 
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const hasUsers = Boolean(users && users.length > 0);
+  const [mode, setMode] = useState(() => (hasUsers ? "signin" : "signup")); // "signin" | "signup"
 
   // Sign In Form
-  const [signInEmail, setSignInEmail] = useState("singhadarshkr836@gmail.com");
-  const [signInPassword, setSignInPassword] = useState("adarsh123");
+  const [signInEmail, setSignInEmail] = useState(() => (hasUsers ? "singhadarshkr836@gmail.com" : ""));
+  const [signInPassword, setSignInPassword] = useState(() => (hasUsers ? "adarsh123" : ""));
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,6 +64,7 @@ export function AuthPage() {
   };
 
   const handleOneClickAdarshDemo = () => {
+    seedDemoUser();
     setSignInEmail("singhadarshkr836@gmail.com");
     setSignInPassword("adarsh123");
     authenticateUser("singhadarshkr836@gmail.com", "adarsh123");
@@ -195,16 +197,18 @@ export function AuthPage() {
 
             {/* PRE-CONFIGURED 1-CLICK DEMO */}
             <div className="adarsh-demo-box">
-              <span className="demo-badge">LOCAL SEED RECORD</span>
+              <span className="demo-badge">{hasUsers ? "LOCAL SEED RECORD" : "SAMPLE DEMO PROFILE"}</span>
               <p className="demo-desc">
-                Adarsh Singh's Semester V record (Galgotias, 45/77 attendance, 7 subjects) is saved locally.
+                {hasUsers
+                  ? "Adarsh Singh's Semester V record (Galgotias, 45/77 attendance, 7 subjects) is saved locally."
+                  : "Want to explore features first? Load sample demo profile (Adarsh Singh, Galgotias University, 7 subjects)."}
               </p>
               <button
                 type="button"
                 className="btn-demo-adarsh"
                 onClick={handleOneClickAdarshDemo}
               >
-                1-Click Demo: Continue as Adarsh Singh
+                1-Click Demo: {hasUsers ? "Continue as Adarsh Singh" : "Explore as Adarsh Singh"}
               </button>
             </div>
           </form>

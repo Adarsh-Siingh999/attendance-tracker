@@ -51,13 +51,19 @@ export function AppProvider({ children }) {
   };
 
   useEffect(() => {
-    // Check if current URL contains incoming live state from phone / another device
+    // Check if current URL contains incoming live state from phone or fresh app request
     applyIncomingSyncFromUrl().then((res) => {
       if (res && res.applied) {
         refreshState();
-        setSyncNotification(
-          `✨ Synced live condition from your device! Showing up-to-date attendance for ${res.name}.`
-        );
+        if (res.fresh) {
+          setSyncNotification(
+            "✨ Opened fresh AttendanceFlow with 0 profiles! Create your account to start tracking."
+          );
+        } else {
+          setSyncNotification(
+            `✨ Synced live condition from your device! Showing up-to-date attendance for ${res.name}.`
+          );
+        }
         setTimeout(() => setSyncNotification(null), 8000);
       }
     });
@@ -127,6 +133,18 @@ export function AppProvider({ children }) {
     if (res.success) {
       refreshState();
     }
+    return res;
+  };
+
+  const handleResetToFreshApp = () => {
+    const res = storageService.resetToFreshApp();
+    refreshState();
+    return res;
+  };
+
+  const handleSeedDemoUser = () => {
+    const res = storageService.seedDefaultDemoUser();
+    refreshState();
     return res;
   };
 
@@ -571,6 +589,8 @@ export function AppProvider({ children }) {
     logoutUser: handleLogout,
     createUser: handleCreateUser,
     deleteUser: handleDeleteUser,
+    resetToFreshApp: handleResetToFreshApp,
+    seedDemoUser: handleSeedDemoUser,
     profile,
     updateProfile,
 

@@ -1,8 +1,23 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { Button } from "../components/common/Button.jsx";
-import { IconUpload, IconSparkles, IconCheck, IconTrash, IconPlus } from "../components/common/Icons.jsx";
+import {
+  IconUpload,
+  IconSparkles,
+  IconCheck,
+  IconTrash,
+  IconPlus,
+  IconCamera,
+  IconAlertTriangle,
+} from "../components/common/Icons.jsx";
 import { extractEventsFromText, GALGOTIAS_SEM5_2026_EVENTS } from "../utils/calendarParser.js";
+import {
+  getStoredClaudeApiKey,
+  saveStoredClaudeApiKey,
+  testClaudeApiKey,
+  analyzeCalendarImageWithClaude,
+  analyzeCalendarTextWithClaude,
+} from "../services/aiService.js";
 
 export function CalendarImportPage() {
   const { calendar, saveCalendar, setActiveTab } = useApp();
@@ -11,9 +26,151 @@ export function CalendarImportPage() {
   const [extractedEvents, setExtractedEvents] = useState([]);
   const [fileName, setFileName] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [pasteText, setPasteText] = useState("");
-  const [importMode, setImportMode] = useState("preset"); // "preset" | "paste" | "file"
+  const [importMode, setImportMode] = useState("preset"); // "preset" | "image" | "paste" | "file"
   const [parseStats, setParseStats] = useState(null);
+  const [calendarMetadata, setCalendarMetadata] = useState(null);
+
+  // Claude API Key & Settings
+  const [claudeKey, setClaudeKey] = useState(() => getStoredClaudeApiKey());
+  const [isKeyDrawerOpen, setIsKeyDrawerOpen] = useState(false);
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [keySavedMessage, setKeySavedMessage] = useState("");
+
+  // Circular / Notice Image state
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+
+  const handleSaveClaudeKey = () => {
+    saveStoredClaudeApiKey(claudeKey);
+    setKeySavedMessage("Claude API Key saved securely in your browser!");
+    setTimeout(() => setKeySavedMessage(""), 3500);
+  };
+
+  const handleTestClaudeKey = async () => {
+    if (!claudeKey.trim()) {
+      setTestResult({ success: false, error: "Please enter your Claude API key first" });
+      return;
+    }
+    setIsTestingKey(true);
+    setTestResult(null);
+    const res = await testClaudeApiKey(claudeKey.trim());
+    setIsTestingKey(false);
+    setTestResult(res);
+  };
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setErrorMessage("");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setImagePreview(ev.target?.result || "");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const processAiExtractedCalendar = (parsedResult, sourceLabel) => {
+    if (!parsedResult) {
+      throw new Error("Could not parse calendar from AI response.");
+    }
+    const events = [];
+    (parsedResult.holidays || []).forEach((h, idx) => {
+      events.push({
+        id: `claude-h-${idx}-${Date.now()}`,
+        type: "holiday",
+        name: h.name,
+        date: h.date,
+        countsAsClass: false,
+      });
+    });
+    (parsedResult.examinations || []).forEach((ex, idx) => {
+      events.push({
+        id: `claude-ex-${idx}-${Date.now()}`,
+        type: "exam",
+        name: ex.name,
+        date: ex.startDate,
+        endDate: ex.endDate,
+        countsAsClass: Boolean(ex.countsAsClass),
+      });
+    });
+    (parsedResult.nonInstructionalDays || []).forEach((ni, idx) => {
+      events.push({
+        id: `claude-ni-${idx}-${Date.now()}`,
+        type: "non-instructional",
+        name: ni.name,
+        date: ni.date,
+        countsAsClass: false,
+      });
+    });
+
+    setExtractedEvents(events);
+    setCalendarMetadata({
+      semester: parsedResult.semester,
+      academicYear: parsedResult.academicYear,
+      startDate: parsedResult.startDate,
+      endDate: parsedResult.endDate,
+      weekends: parsedResult.weekends,
+    });
+    setParseStats({
+      source: `${sourceLabel} (Claude 3.5 Sonnet Vision & AI)`,
+      holidays: (parsedResult.holidays || []).length,
+      exams: (parsedResult.examinations || []).length,
+      other: (parsedResult.nonInstructionalDays || []).length,
+    });
+  };
+
+  // Scan circular photo or screenshot with Claude Vision
+  const handleScanImageWithClaude = async () => {
+    if (!imagePreview) {
+      setErrorMessage("Please select or capture a circular or academic calendar image first.");
+      return;
+    }
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setParseStats(null);
+
+    try {
+      const mime = imageFile?.type || "image/jpeg";
+      const result = await analyzeCalendarImageWithClaude(imagePreview, mime, claudeKey);
+      processAiExtractedCalendar(result, imageFile?.name || "Uploaded Circular Image");
+    } catch (err) {
+      setErrorMessage(`Claude Vision Error: ${err.message || "Failed to scan calendar image."}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Extract events from text with Claude AI
+  const handleParseTextWithClaude = async () => {
+    if (!pasteText.trim()) return;
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setParseStats(null);
+
+    try {
+      const result = await analyzeCalendarTextWithClaude(pasteText, claudeKey);
+      processAiExtractedCalendar(result, "Pasted Circular / Notice Text");
+    } catch (err) {
+      setErrorMessage(`Claude AI Error: ${err.message || "Failed to parse text. Falling back to local heuristic..."}`);
+      // Fallback to local regex parser
+      const parsed = extractEventsFromText(pasteText, 2026);
+      setExtractedEvents(parsed);
+      setParseStats({
+        source: "Pasted Text (Fallback Local Parser)",
+        holidays: parsed.filter((e) => e.type === "holiday").length,
+        exams: parsed.filter((e) => e.type === "exam").length,
+        other: parsed.filter((e) => e.type === "non-instructional").length,
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   // Load comprehensive Galgotias University preset
   const handleLoadPreset = () => {
@@ -169,6 +326,10 @@ export function CalendarImportPage() {
 
     saveCalendar({
       ...calendar,
+      ...(calendarMetadata?.startDate ? { startDate: calendarMetadata.startDate } : {}),
+      ...(calendarMetadata?.endDate ? { endDate: calendarMetadata.endDate } : {}),
+      ...(calendarMetadata?.semester ? { semester: calendarMetadata.semester } : {}),
+      ...(calendarMetadata?.weekends?.length ? { weekends: calendarMetadata.weekends } : {}),
       holidays: currentHolidays,
       examinations: currentExams,
       nonInstructionalDays: currentNonInst,
@@ -191,12 +352,76 @@ export function CalendarImportPage() {
     <div className="page-container ai-import-page">
       <div className="page-header-actions">
         <div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "6px" }}>
+            <span className="agent-badge">✨ CALENDAR INTELLIGENCE</span>
+            <span className="agent-status-tag">
+              {claudeKey.trim() ? "🟢 Claude 3.5 Sonnet Connected" : "⚡ Claude AI Ready"}
+            </span>
+          </div>
           <h2 className="section-heading">AI Academic Calendar Importer</h2>
           <p className="section-desc">
-            Import your university&apos;s official academic calendar — load the Galgotias preset, paste calendar text, or upload a file. AI extracts holidays, exams, and events.
+            Import your university&apos;s official academic calendar — scan photos of circulars with Claude 3.5 Sonnet Vision, paste text, or load presets.
           </p>
         </div>
       </div>
+
+      {/* CLAUDE API KEY DRAWER */}
+      <div className="gemini-key-drawer" style={{ marginBottom: "20px" }}>
+        <button
+          type="button"
+          className="drawer-toggle-btn"
+          onClick={() => setIsKeyDrawerOpen((prev) => !prev)}
+        >
+          <span>🤖 Anthropic Claude AI Settings (Vision & Text Calendar Extraction)</span>
+          <span className="drawer-arrow">{isKeyDrawerOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {isKeyDrawerOpen && (
+          <div className="drawer-body">
+            <p className="drawer-hint">
+              Enter your Anthropic Claude API Key from{" "}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="link-primary"
+              >
+                console.anthropic.com
+              </a>{" "}
+              to scan circular photos, examination notices, and semester schedules directly.
+            </p>
+            <div className="key-input-row" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <input
+                type="password"
+                className="form-input key-input"
+                placeholder="sk-ant-api03-... (Claude API Key)"
+                value={claudeKey}
+                onChange={(e) => setClaudeKey(e.target.value)}
+                style={{ flex: 1, minWidth: "220px" }}
+              />
+              <Button variant="outline" size="sm" onClick={handleTestClaudeKey} disabled={isTestingKey}>
+                {isTestingKey ? "Testing..." : "Test Key"}
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleSaveClaudeKey}>
+                Save Key
+              </Button>
+            </div>
+            {testResult && (
+              <div style={{ marginTop: "6px", fontSize: "12px", color: testResult.success ? "#10b981" : "#ef4444" }}>
+                {testResult.success ? "✅ Claude API connected successfully!" : `❌ Test failed: ${testResult.error}`}
+              </div>
+            )}
+            {keySavedMessage && <div className="text-success text-xs mt-1" style={{ marginTop: "6px" }}>{keySavedMessage}</div>}
+          </div>
+        )}
+      </div>
+
+      {errorMessage && (
+        <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #f87171", borderRadius: "8px", color: "#b91c1c", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <IconAlertTriangle size={18} />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* IMPORT MODE SELECTOR */}
       <div className="import-mode-selector">
@@ -206,6 +431,13 @@ export function CalendarImportPage() {
           onClick={() => setImportMode("preset")}
         >
           <IconSparkles size={16} /> Galgotias Preset
+        </button>
+        <button
+          type="button"
+          className={`mode-tab ${importMode === "image" ? "active" : ""}`}
+          onClick={() => setImportMode("image")}
+        >
+          <IconCamera size={16} /> 📷 Claude Vision (Circular Photo)
         </button>
         <button
           type="button"
@@ -219,7 +451,7 @@ export function CalendarImportPage() {
           className={`mode-tab ${importMode === "file" ? "active" : ""}`}
           onClick={() => setImportMode("file")}
         >
-          <IconUpload size={16} /> Upload File
+          <IconUpload size={16} /> Upload TXT / CSV
         </button>
       </div>
 
@@ -240,6 +472,60 @@ export function CalendarImportPage() {
         </div>
       )}
 
+      {/* IMAGE / CIRCULAR SCANNER MODE (CLAUDE VISION) */}
+      {importMode === "image" && (
+        <div className="ai-upload-card">
+          <div className="upload-dropzone" style={{ padding: "24px 16px" }}>
+            {imagePreview ? (
+              <div style={{ maxWidth: "480px", margin: "0 auto", textAlign: "center" }}>
+                <img
+                  src={imagePreview}
+                  alt="Calendar Circular Preview"
+                  style={{ maxHeight: "260px", maxWidth: "100%", borderRadius: "8px", objectFit: "contain", border: "1px solid var(--border-color)" }}
+                />
+                <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--text-secondary)" }}>
+                  {imageFile?.name || "Selected Circular Image"}
+                </p>
+                <div style={{ marginTop: "16px", display: "flex", gap: "10px", justifyContent: "center" }}>
+                  <Button variant="primary" size="md" onClick={handleScanImageWithClaude} disabled={isProcessing}>
+                    <IconSparkles size={16} /> {isProcessing ? "Scanning with Claude Vision..." : "Extract Calendar with Claude Vision"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => {
+                      setImagePreview("");
+                      setImageFile(null);
+                    }}
+                  >
+                    Change Image
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <IconCamera size={48} className="upload-icon text-primary" />
+                <h3>Photograph or Upload Academic Circular</h3>
+                <p>
+                  Claude 3.5 Sonnet Vision reads official notifications, holiday lists, and exam schedules from photos or screenshots (PNG, JPG, WEBP).
+                </p>
+                <div className="upload-btn-row">
+                  <label className="saas-btn btn-primary btn-md cursor-pointer">
+                    <IconUpload size={16} /> Choose Image / Snap Photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden-file-input"
+                      onChange={handleImageFileChange}
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* PASTE MODE */}
       {importMode === "paste" && (
         <div className="ai-upload-card paste-mode-card">
@@ -247,27 +533,37 @@ export function CalendarImportPage() {
             <h3>Paste Your Academic Calendar Text</h3>
             <p className="paste-hint">
               Copy-paste the holiday list, exam schedule, or academic calendar from your university website, notice, or WhatsApp group.
-              The AI parser supports multiple date formats (dd/mm/yyyy, &quot;15 August&quot;, date ranges, etc.)
+              Extract with Claude AI for deep contextual understanding or use the fast heuristic engine.
             </p>
             <textarea
               className="form-input paste-textarea"
-              rows={10}
+              rows={9}
               placeholder={`Example formats supported:\n\n15/08/2026 - Independence Day\n02.10.2026 | Mahatma Gandhi Jayanti\n21/10/2026 to 31/10/2026 - Mid-Term Examinations\nDiwali - 08/11/2026\n15 August 2026 - Independence Day\nRaksha Bandhan 28 Aug 2026`}
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
             />
-            <div className="paste-actions-row">
+            <div className="paste-actions-row" style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
               <span className="paste-line-count">
                 {pasteText.split("\n").filter(Boolean).length} lines
               </span>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleParseText}
-                disabled={!pasteText.trim()}
-              >
-                <IconSparkles size={16} /> Extract Events from Text
-              </Button>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleParseText}
+                  disabled={!pasteText.trim() || isProcessing}
+                >
+                  📋 Local Heuristic Parse
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleParseTextWithClaude}
+                  disabled={!pasteText.trim() || isProcessing}
+                >
+                  <IconSparkles size={16} /> Extract with Claude AI
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -281,7 +577,7 @@ export function CalendarImportPage() {
             <h3>Upload Calendar File (TXT / CSV)</h3>
             <p>
               Upload a text or CSV file containing your academic calendar. The parser will extract dates and event names.
-              For PDF/image files, copy-paste the text content using the &quot;Paste&quot; tab instead.
+              For circular photos or screenshots, use the <strong>Claude Vision</strong> tab.
             </p>
             <div className="upload-btn-row">
               <label className="saas-btn btn-primary btn-md cursor-pointer">

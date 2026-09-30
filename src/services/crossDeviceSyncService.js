@@ -141,11 +141,60 @@ export async function parseSyncFromCurrentUrl() {
 }
 
 /**
- * Check and apply any incoming sync payload from the URL on app startup
+ * Checks if the current page URL indicates a fresh start request (?fresh=1, #fresh, etc.)
+ */
+export function checkIsFreshLink(customUrl = null) {
+  try {
+    let search = "";
+    let hash = "";
+
+    if (customUrl) {
+      const u = new URL(customUrl, "http://localhost");
+      search = u.search;
+      hash = u.hash;
+    } else if (typeof window !== "undefined") {
+      search = window.location.search;
+      hash = window.location.hash;
+    }
+
+    if (search) {
+      const searchParams = new URLSearchParams(search);
+      if (searchParams.get("fresh") || searchParams.get("mode") === "fresh" || searchParams.get("new") === "true") {
+        return true;
+      }
+    }
+    if (hash) {
+      const h = hash.toLowerCase();
+      if (h.includes("fresh") || h.includes("new_user") || h.includes("mode=fresh")) {
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn("[SyncService] checkIsFreshLink error:", err);
+  }
+  return false;
+}
+
+/**
+ * Check and apply any incoming sync payload or fresh start request from the URL on app startup
  */
 export async function applyIncomingSyncFromUrl() {
   if (typeof window === "undefined") return { applied: false };
 
+  // 1. Check if user opened a FRESH share link (?fresh=1 or #fresh)
+  if (checkIsFreshLink()) {
+    storageService.resetToFreshApp();
+
+    // Clean up URL query / hash without refreshing
+    if (window.history && window.history.replaceState) {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+
+    return { applied: true, fresh: true };
+  }
+
+  // 2. Check if user opened a LIVE sync state link (#sync=...)
   const payload = await parseSyncFromCurrentUrl();
   if (!payload || !payload.profile) {
     return { applied: false };
@@ -236,5 +285,47 @@ export async function shareLiveAttendanceCondition({ customBaseUrl = "", student
     copied: Boolean(shareResult.copied),
     text: shareText,
     timestamp: syncInfo.timestamp,
+  };
+}
+
+/**
+ * Generate a clean shareable URL for a brand new user.
+ * Opening this URL opens the web app completely fresh with zero profiles,
+ * prompting them to register and set up their own subjects from scratch.
+ *
+ * @param {string} [customBaseUrl] - Optional base URL
+ * @returns {string} Clean URL with fresh flag
+ */
+export function generateFreshAppShareUrl(customBaseUrl = "") {
+  let baseUrl = customBaseUrl;
+  if (!baseUrl && typeof window !== "undefined") {
+    baseUrl = window.location.origin + window.location.pathname;
+  }
+  baseUrl = (baseUrl || "https://attendanceflow.app").replace(/\/$/, "");
+  return `${baseUrl}?fresh=1`;
+}
+
+/**
+ * High-level function to share the fresh web app with someone new.
+ * Sends a clean URL with zero profiles so the recipient can sign up
+ * and track their own attendance cleanly.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.customBaseUrl] - Optional base URL
+ * @returns {Promise<{ success: boolean, url: string, native: boolean, copied: boolean, text: string }>}
+ */
+export async function shareFreshAppToNewUser({ customBaseUrl = "" } = {}) {
+  const freshUrl = generateFreshAppShareUrl(customBaseUrl);
+  const shareTitle = "AttendanceFlow - Free College Attendance & Skip Simulator";
+  const shareText = "🚀 Try AttendanceFlow! Track your college attendance, simulate class skips, and stay above 75% eligibility with zero clutter. Open this fresh link to create your account:";
+
+  const shareResult = await triggerNativeShare(freshUrl, shareTitle, shareText);
+
+  return {
+    success: shareResult.success,
+    url: freshUrl,
+    native: Boolean(shareResult.native),
+    copied: Boolean(shareResult.copied),
+    text: shareText,
   };
 }

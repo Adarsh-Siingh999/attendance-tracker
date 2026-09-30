@@ -9,7 +9,16 @@ import {
   extractTimetableFromText,
   generateSubjectsFromExtractedClasses,
   SAMPLE_PRESETS,
+  getStoredClaudeApiKey,
+  saveStoredClaudeApiKey,
+  getPreferredAiProvider,
+  savePreferredAiProvider,
 } from "../services/timetableAiService.js";
+import {
+  extractJsonFromAiResponse,
+  sanitizeExtractedTimetable,
+  sanitizeExtractedCalendar,
+} from "../services/aiService.js";
 
 let passed = 0;
 let failed = 0;
@@ -127,6 +136,122 @@ for (const preset of SAMPLE_PRESETS) {
     }
   }
 }
+
+// 6. Claude API Storage & Provider Preference Tests
+console.log("\n6. Claude API Key Storage & Provider Preference Tests:");
+// Setup mock localStorage if running in Node.js
+if (typeof window === "undefined" || !globalThis.localStorage) {
+  const mockStorage = {};
+  globalThis.localStorage = {
+    getItem: (key) => mockStorage[key] || null,
+    setItem: (key, val) => { mockStorage[key] = String(val); },
+    removeItem: (key) => { delete mockStorage[key]; },
+    clear: () => { Object.keys(mockStorage).forEach((k) => delete mockStorage[k]); },
+  };
+}
+
+saveStoredClaudeApiKey("sk-ant-api03-test-key-abc123xyz");
+assertEqual(getStoredClaudeApiKey(), "sk-ant-api03-test-key-abc123xyz", "Claude API Key saved and retrieved from storage");
+
+savePreferredAiProvider("claude");
+assertEqual(getPreferredAiProvider(), "claude", "Claude preferred AI provider saved and retrieved");
+
+savePreferredAiProvider("gemini");
+assertEqual(getPreferredAiProvider(), "gemini", "Gemini preferred AI provider switch supported");
+
+// 7. AI JSON Sanitizer & Markdown Stripper Tests
+console.log("\n7. AI Markdown JSON Sanitizer Tests:");
+const rawClaudeResponseWithMarkdown = `Here is your extracted timetable:
+\`\`\`json
+{
+  "detectedDays": [
+    {
+      "dayName": "Monday",
+      "dayIndex": 1,
+      "classes": [
+        {
+          "start": "09:30",
+          "end": "10:20",
+          "subject": "Deep Learning",
+          "code": "CS602",
+          "type": "PP",
+          "room": "Room 501"
+        }
+      ]
+    }
+  ]
+}
+\`\`\`
+Hope this helps!`;
+
+const extractedJson = extractJsonFromAiResponse(rawClaudeResponseWithMarkdown);
+assert(Boolean(extractedJson), "extractJsonFromAiResponse successfully parses markdown code block");
+assertEqual(extractedJson.detectedDays?.length, 1, "Parsed detectedDays array correctly");
+assertEqual(extractedJson.detectedDays[0].classes[0].subject, "Deep Learning", "Subject cleanly extracted without markdown interference");
+
+// Test direct JSON without markdown fences
+const rawDirectJson = '{"status": "ok", "items": [1, 2, 3]}';
+const directParsed = extractJsonFromAiResponse(rawDirectJson);
+assertEqual(directParsed.status, "ok", "extractJsonFromAiResponse parses plain raw JSON string");
+
+// 8. Claude Vision Timetable & Academic Calendar Sanitizer Tests
+console.log("\n8. Claude Vision Timetable & Calendar Sanitizer Tests:");
+const sanitizedTimetable = sanitizeExtractedTimetable({
+  detectedDays: [
+    {
+      dayName: "Thursday",
+      classes: [
+        {
+          start: "1:45 PM",
+          end: "2:35 PM",
+          subject: "Natural Language Processing",
+          code: "AI404",
+          type: "PR",
+          room: "Lab 2"
+        }
+      ]
+    }
+  ]
+});
+
+assert(sanitizedTimetable.detectedDays.length === 1, "Sanitized timetable contains 1 day");
+assertEqual(sanitizedTimetable.detectedDays[0].dayIndex, 4, "Converted 'Thursday' name to dayIndex 4");
+assertEqual(sanitizedTimetable.detectedDays[0].classes[0].start, "13:45", "Normalized class start time 1:45 PM to 13:45");
+assertEqual(sanitizedTimetable.detectedDays[0].classes[0].end, "14:35", "Normalized class end time 2:35 PM to 14:35");
+
+// Academic Calendar Sanitizer Test
+const sanitizedCalendar = sanitizeExtractedCalendar({
+  semester: "Semester VI (Spring 2027)",
+  academicYear: "2026-27",
+  startDate: "2027-01-18",
+  endDate: "2027-05-28",
+  weekends: [0, 6],
+  holidays: [
+    { date: "2027-01-26", name: "Republic Day" },
+    { date: "2027-03-25", name: "Holi" }
+  ],
+  examinations: [
+    {
+      id: "mte-2027",
+      name: "Mid-Term Examinations",
+      startDate: "2027-03-15",
+      endDate: "2027-03-20",
+      countsAsClass: false
+    }
+  ],
+  nonInstructionalDays: [
+    { date: "2027-02-28", name: "Annual Tech Fest" }
+  ]
+});
+
+assertEqual(sanitizedCalendar.semester, "Semester VI (Spring 2027)", "Calendar semester parsed");
+assertEqual(sanitizedCalendar.holidays.length, 2, "Sanitized 2 holidays");
+assertEqual(sanitizedCalendar.holidays[0].name, "Republic Day", "Holiday title correct");
+assertEqual(sanitizedCalendar.examinations.length, 1, "Sanitized 1 exam schedule");
+assertEqual(sanitizedCalendar.examinations[0].startDate, "2027-03-15", "Exam start date correct");
+assertEqual(sanitizedCalendar.examinations[0].countsAsClass, false, "Theory exam does not count as regular class");
+assertEqual(sanitizedCalendar.nonInstructionalDays.length, 1, "Sanitized 1 non-instructional event");
+assertEqual(sanitizedCalendar.weekends.length, 2, "Configured weekend days [0, 6]");
 
 console.log(`\n=== TEST RESULTS: ${passed}/${passed + failed} PASSED ===\n`);
 

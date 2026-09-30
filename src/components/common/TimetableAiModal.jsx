@@ -12,11 +12,18 @@ import {
   IconAlertTriangle,
 } from "./Icons.jsx";
 import {
+  analyzeTimetableImageWithAI,
   analyzeTimetableImageWithGemini,
+  analyzeTimetableTextWithClaude,
   extractTimetableFromText,
   generateSubjectsFromExtractedClasses,
-  getStoredApiKey,
-  saveStoredApiKey,
+  getStoredClaudeApiKey,
+  saveStoredClaudeApiKey,
+  getStoredGeminiApiKey,
+  saveStoredGeminiApiKey,
+  getPreferredAiProvider,
+  savePreferredAiProvider,
+  testClaudeApiKey,
   SAMPLE_PRESETS,
   DAY_NAMES,
 } from "../../services/timetableAiService.js";
@@ -37,10 +44,14 @@ export function TimetableAiModal({
   const [pastedText, setPastedText] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState("galgotias-full-week");
 
-  // Gemini API Key management
-  const [apiKey, setApiKey] = useState(getStoredApiKey());
+  // AI Provider & API Key management
+  const [provider, setProvider] = useState(() => getPreferredAiProvider());
+  const [claudeKey, setClaudeKey] = useState(() => getStoredClaudeApiKey());
+  const [geminiKey, setGeminiKey] = useState(() => getStoredGeminiApiKey());
   const [isKeyDrawerOpen, setIsKeyDrawerOpen] = useState(false);
   const [keySavedMessage, setKeySavedMessage] = useState("");
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   // Processing & State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -55,10 +66,24 @@ export function TimetableAiModal({
   const [mergeStrategy, setMergeStrategy] = useState("replace"); // "replace" | "merge"
   const [successBanner, setSuccessBanner] = useState("");
 
-  const handleSaveApiKey = () => {
-    saveStoredApiKey(apiKey);
-    setKeySavedMessage("API Key saved securely in your browser!");
-    setTimeout(() => setKeySavedMessage(""), 3000);
+  const handleSaveKeys = () => {
+    saveStoredClaudeApiKey(claudeKey);
+    saveStoredGeminiApiKey(geminiKey);
+    savePreferredAiProvider(provider);
+    setKeySavedMessage("AI Settings & Keys saved securely in your browser!");
+    setTimeout(() => setKeySavedMessage(""), 3500);
+  };
+
+  const handleTestClaude = async () => {
+    if (!claudeKey.trim()) {
+      setTestResult({ success: false, error: "Please enter a Claude API key first" });
+      return;
+    }
+    setIsTestingKey(true);
+    setTestResult(null);
+    const res = await testClaudeApiKey(claudeKey.trim());
+    setIsTestingKey(false);
+    setTestResult(res);
   };
 
   const [imagePreviews, setImagePreviews] = useState([]); // [{ data, name, type }]
@@ -131,13 +156,16 @@ export function TimetableAiModal({
         const img = imagesToAnalyze[i];
         let result = null;
 
-        if (apiKey.trim()) {
-          // Use live Google Gemini Vision API
-          result = await analyzeTimetableImageWithGemini(
-            img.data,
-            img.type || "image/jpeg",
-            apiKey.trim()
-          );
+        const activeKey = provider === "claude" ? claudeKey : geminiKey;
+
+        if (activeKey.trim()) {
+          // Use live Claude 3.5 Sonnet Vision (premier) or Gemini Vision API
+          result = await analyzeTimetableImageWithAI({
+            base64Data: img.data,
+            mimeType: img.type || "image/jpeg",
+            provider,
+            apiKey: activeKey.trim(),
+          });
         } else {
           // Heuristic fallback for zero-key testing
           await new Promise((res) => setTimeout(res, 800));
@@ -217,7 +245,7 @@ export function TimetableAiModal({
   };
 
   // Parse Pasted Text
-  const handleParseText = () => {
+  const handleParseText = async () => {
     if (!pastedText.trim()) {
       setErrorMessage("Please paste some timetable text first.");
       return;
@@ -225,6 +253,22 @@ export function TimetableAiModal({
 
     setIsProcessing(true);
     setErrorMessage("");
+
+    // Try Claude AI deep parsing if Claude is selected and key is present
+    if (provider === "claude" && claudeKey.trim()) {
+      try {
+        const aiRes = await analyzeTimetableTextWithClaude(pastedText, claudeKey.trim());
+        if (aiRes && Array.isArray(aiRes.detectedDays) && aiRes.detectedDays.length > 0) {
+          setIsProcessing(false);
+          setExtractedDays(aiRes.detectedDays);
+          setActiveReviewDayIndex(aiRes.detectedDays[0]?.dayIndex ?? 1);
+          return;
+        }
+      } catch (err) {
+        console.warn("[TimetableAi] Claude text parsing error, falling back to local extractor:", err);
+      }
+    }
+
     setTimeout(() => {
       setIsProcessing(false);
       const res = extractTimetableFromText(pastedText);
@@ -369,12 +413,14 @@ export function TimetableAiModal({
           <div className="intro-badge-row">
             <span className="agent-badge">✨ MULTI-DAY VISION AGENT</span>
             <span className="agent-status-tag">
-              {apiKey.trim() ? "🟢 Gemini 2.0 Vision Connected" : "⚡ Intelligent Heuristic Engine"}
+              {provider === "claude"
+                ? (claudeKey.trim() ? "🟢 Claude 3.5 Sonnet Connected" : "⚡ Claude AI (Direct Access)")
+                : (geminiKey.trim() ? "🟢 Gemini 2.0 Vision Connected" : "⚡ Gemini AI (Heuristic Fallback)")}
             </span>
           </div>
           <h4>Photograph or Upload Your Timetable</h4>
           <p>
-            The agent automatically detects the day of the week, class timings, course codes, subjects, and room locations.
+            The agent automatically detects days of the week, class timings, course codes, subjects, and room locations using Claude 3.5 Sonnet Vision or Gemini.
             For new users, it also generates your subject list with zero attendance in 1 click!
           </p>
         </div>
@@ -413,37 +459,97 @@ export function TimetableAiModal({
             className="drawer-toggle-btn"
             onClick={() => setIsKeyDrawerOpen((prev) => !prev)}
           >
-            <span>⚙️ Google Gemini API Key Settings</span>
+            <span>🤖 AI Engine & API Keys (Claude 3.5 Sonnet & Gemini)</span>
             <span className="drawer-arrow">{isKeyDrawerOpen ? "▲" : "▼"}</span>
           </button>
 
           {isKeyDrawerOpen && (
             <div className="drawer-body">
-              <p className="drawer-hint">
-                Provide your free Google Gemini API Key from{" "}
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="link-primary"
+              <div style={{ marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-secondary)" }}>Preferred AI:</span>
+                <button
+                  type="button"
+                  className={`saas-btn btn-sm ${provider === "claude" ? "btn-primary" : "btn-outline"}`}
+                  onClick={() => setProvider("claude")}
+                  style={{ fontSize: "12px", padding: "4px 10px" }}
                 >
-                  aistudio.google.com
-                </a>{" "}
-                to analyze custom photos with vision. Without a key, the scanner uses our built-in university pattern recognition.
-              </p>
-              <div className="key-input-row">
-                <input
-                  type="password"
-                  className="form-input key-input"
-                  placeholder="Paste AIzaSy... Gemini API Key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-                <Button variant="outline" size="sm" onClick={handleSaveApiKey}>
-                  Save Key
-                </Button>
+                  ⚡ Anthropic Claude 3.5 Sonnet (Recommended)
+                </button>
+                <button
+                  type="button"
+                  className={`saas-btn btn-sm ${provider === "gemini" ? "btn-primary" : "btn-outline"}`}
+                  onClick={() => setProvider("gemini")}
+                  style={{ fontSize: "12px", padding: "4px 10px" }}
+                >
+                  ✨ Google Gemini 2.0
+                </button>
               </div>
-              {keySavedMessage && <div className="text-success text-xs mt-1">{keySavedMessage}</div>}
+
+              {provider === "claude" ? (
+                <div>
+                  <p className="drawer-hint">
+                    Get an Anthropic Claude API Key from{" "}
+                    <a
+                      href="https://console.anthropic.com/settings/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link-primary"
+                    >
+                      console.anthropic.com
+                    </a>{" "}
+                    for best-in-class multi-day timetable scanning and calendar parsing.
+                  </p>
+                  <div className="key-input-row" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <input
+                      type="password"
+                      className="form-input key-input"
+                      placeholder="sk-ant-api03-... (Claude API Key)"
+                      value={claudeKey}
+                      onChange={(e) => setClaudeKey(e.target.value)}
+                      style={{ flex: 1, minWidth: "220px" }}
+                    />
+                    <Button variant="outline" size="sm" onClick={handleTestClaude} disabled={isTestingKey}>
+                      {isTestingKey ? "Testing..." : "Test Key"}
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={handleSaveKeys}>
+                      Save Settings
+                    </Button>
+                  </div>
+                  {testResult && (
+                    <div style={{ marginTop: "6px", fontSize: "12px", color: testResult.success ? "#10b981" : "#ef4444" }}>
+                      {testResult.success ? "✅ Claude API connected successfully!" : `❌ Test failed: ${testResult.error}`}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <p className="drawer-hint">
+                    Get a Google Gemini API Key from{" "}
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link-primary"
+                    >
+                      aistudio.google.com
+                    </a>.
+                  </p>
+                  <div className="key-input-row" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <input
+                      type="password"
+                      className="form-input key-input"
+                      placeholder="AIzaSy... (Gemini API Key)"
+                      value={geminiKey}
+                      onChange={(e) => setGeminiKey(e.target.value)}
+                      style={{ flex: 1, minWidth: "220px" }}
+                    />
+                    <Button variant="primary" size="sm" onClick={handleSaveKeys}>
+                      Save Settings
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {keySavedMessage && <div className="text-success text-xs mt-1" style={{ marginTop: "6px" }}>{keySavedMessage}</div>}
             </div>
           )}
         </div>

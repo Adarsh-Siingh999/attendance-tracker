@@ -3,10 +3,19 @@ import { useApp } from "../context/AppContext.jsx";
 import { Button } from "../components/common/Button.jsx";
 import { Badge } from "../components/common/Badge.jsx";
 import { Modal } from "../components/common/Modal.jsx";
-import { IconDownload, IconTrash, IconPlus, IconCheck, IconSparkles } from "../components/common/Icons.jsx";
+import { IconDownload, IconTrash, IconPlus, IconCheck, IconSparkles, IconCamera } from "../components/common/Icons.jsx";
 import { storageService } from "../services/storageService.js";
 import { SemesterWizardModal } from "../components/common/SemesterWizardModal.jsx";
 import { AuthModal } from "../components/auth/AuthModal.jsx";
+import {
+  getStoredClaudeApiKey,
+  saveStoredClaudeApiKey,
+  getStoredGeminiApiKey,
+  saveStoredGeminiApiKey,
+  getPreferredAiProvider,
+  savePreferredAiProvider,
+  testClaudeApiKey,
+} from "../services/aiService.js";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -24,6 +33,7 @@ export function SettingsPage() {
     users,
     loginUser,
     deleteUser,
+    resetToFreshApp,
   } = useApp();
 
   // Modals
@@ -49,6 +59,35 @@ export function SettingsPage() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
   const [copySubjects, setCopySubjects] = useState(false);
+
+  // AI Configuration (Claude 3.5 Sonnet & Google Gemini)
+  const [aiProvider, setAiProvider] = useState(() => getPreferredAiProvider());
+  const [claudeApiKey, setClaudeApiKey] = useState(() => getStoredClaudeApiKey());
+  const [geminiApiKey, setGeminiApiKey] = useState(() => getStoredGeminiApiKey());
+  const [isTestingClaude, setIsTestingClaude] = useState(false);
+  const [claudeTestResult, setClaudeTestResult] = useState(null);
+  const [aiSaved, setAiSaved] = useState(false);
+
+  const handleSaveAiSettings = (e) => {
+    e?.preventDefault?.();
+    saveStoredClaudeApiKey(claudeApiKey);
+    saveStoredGeminiApiKey(geminiApiKey);
+    savePreferredAiProvider(aiProvider);
+    setAiSaved(true);
+    setTimeout(() => setAiSaved(false), 2500);
+  };
+
+  const handleTestClaudeSettings = async () => {
+    if (!claudeApiKey.trim()) {
+      setClaudeTestResult({ success: false, error: "Please enter a Claude API key first." });
+      return;
+    }
+    setIsTestingClaude(true);
+    setClaudeTestResult(null);
+    const res = await testClaudeApiKey(claudeApiKey.trim());
+    setIsTestingClaude(false);
+    setClaudeTestResult(res);
+  };
 
   const handleSaveProfile = (e) => {
     e.preventDefault();
@@ -247,20 +286,22 @@ export function SettingsPage() {
                           Switch
                         </button>
                       )}
-                      {users.length > 1 && (
-                        <button
-                          type="button"
-                          className="btn-trash-icon"
-                          title={`Delete profile: ${u.name}`}
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to permanently delete profile "${u.name}"? All subjects, attendance logs, and timetables for this student will be wiped.`)) {
-                              deleteUser(u.id);
-                            }
-                          }}
-                        >
-                          <IconTrash size={15} />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="btn-trash-icon"
+                        title={`Delete profile: ${u.name}`}
+                        onClick={() => {
+                          const isLast = users.length <= 1;
+                          const msg = isLast
+                            ? `Warning: "${u.name}" is your only remaining profile. Deleting it will leave 0 profiles and return you to the onboarding screen. Proceed?`
+                            : `Are you sure you want to permanently delete profile "${u.name}"? All subjects, attendance logs, and timetables for this student will be wiped.`;
+                          if (window.confirm(msg)) {
+                            deleteUser(u.id);
+                          }
+                        }}
+                      >
+                        <IconTrash size={15} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -400,7 +441,101 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* 4. BACKUP & SYSTEM RESET */}
+        {/* 4. AI INTELLIGENCE & SCANNER SETTINGS */}
+        <div className="settings-card full-width-card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
+            <div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
+                <span className="agent-badge">✨ MULTI-PROVIDER AI</span>
+                <span className="agent-status-tag">
+                  {aiProvider === "claude"
+                    ? (claudeApiKey.trim() ? "🟢 Claude 3.5 Sonnet Active" : "⚡ Claude (Key Needed)")
+                    : (geminiApiKey.trim() ? "🟢 Gemini 2.0 Active" : "⚡ Gemini (Key Needed)")}
+                </span>
+              </div>
+              <h3 className="card-section-title">AI Intelligence & Scanner (Claude & Gemini)</h3>
+              <p className="card-desc">
+                Powers the <strong>AI Timetable Vision Scanner</strong> and <strong>Academic Calendar / Circular Importer</strong>. Your keys are stored locally and securely in your browser.
+              </p>
+            </div>
+            <div>
+              <Button variant="primary" size="sm" onClick={handleSaveAiSettings}>
+                {aiSaved ? <><IconCheck size={14} /> Saved!</> : "Save AI Settings"}
+              </Button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "16px", marginTop: "12px" }}>
+            <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-secondary)" }}>Preferred AI Model:</span>
+            <button
+              type="button"
+              className={`saas-btn btn-sm ${aiProvider === "claude" ? "btn-primary" : "btn-outline"}`}
+              onClick={() => setAiProvider("claude")}
+              style={{ fontSize: "12px", padding: "5px 12px" }}
+            >
+              ⚡ Anthropic Claude 3.5 Sonnet (Recommended)
+            </button>
+            <button
+              type="button"
+              className={`saas-btn btn-sm ${aiProvider === "gemini" ? "btn-primary" : "btn-outline"}`}
+              onClick={() => setAiProvider("gemini")}
+              style={{ fontSize: "12px", padding: "5px 12px" }}
+            >
+              ✨ Google Gemini 2.0
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
+            {/* Claude API Key Card */}
+            <div style={{ background: "var(--bg-card-subtle, #f9fafb)", padding: "16px", borderRadius: "10px", border: aiProvider === "claude" ? "2px solid #8b5cf6" : "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "14px" }}>Anthropic Claude API Key</strong>
+                {aiProvider === "claude" && <Badge variant="primary" size="sm">Active</Badge>}
+              </div>
+              <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "10px" }}>
+                Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="link-primary">console.anthropic.com</a>. Best-in-class multi-day timetable vision & circular parsing.
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="sk-ant-api03-... (Claude Key)"
+                  value={claudeApiKey}
+                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <Button variant="outline" size="sm" onClick={handleTestClaudeSettings} disabled={isTestingClaude}>
+                  {isTestingClaude ? "Testing..." : "Test"}
+                </Button>
+              </div>
+              {claudeTestResult && (
+                <div style={{ marginTop: "6px", fontSize: "12px", color: claudeTestResult.success ? "#10b981" : "#ef4444" }}>
+                  {claudeTestResult.success ? "✅ Claude Connected Successfully!" : `❌ ${claudeTestResult.error}`}
+                </div>
+              )}
+            </div>
+
+            {/* Gemini API Key Card */}
+            <div style={{ background: "var(--bg-card-subtle, #f9fafb)", padding: "16px", borderRadius: "10px", border: aiProvider === "gemini" ? "2px solid #3b82f6" : "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "14px" }}>Google Gemini API Key</strong>
+                {aiProvider === "gemini" && <Badge variant="primary" size="sm">Active</Badge>}
+              </div>
+              <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "10px" }}>
+                Get your free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="link-primary">aistudio.google.com</a>.
+              </p>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="AIzaSy... (Gemini Key)"
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 5. BACKUP & SYSTEM RESET */}
         <div className="settings-card full-width-card">
           <h3 className="card-section-title">Data Backup & Factory Reset</h3>
           <p className="card-desc">
@@ -413,6 +548,18 @@ export function SettingsPage() {
             </Button>
             <Button variant="danger" size="md" onClick={handleResetData}>
               Reset to Original Seed Data
+            </Button>
+            <Button
+              variant="outline"
+              size="md"
+              style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear all profiles and start completely fresh with zero profiles? This will log you out and return to the new account registration screen.")) {
+                  resetToFreshApp();
+                }
+              }}
+            >
+              Start Fresh (0 Profiles)
             </Button>
           </div>
         </div>

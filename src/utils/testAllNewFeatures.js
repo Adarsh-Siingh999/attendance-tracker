@@ -22,7 +22,12 @@ import {
   DAY_NAMES,
 } from "../services/timetableAiService.js";
 import { simulateDateRangeLeave } from "./skipSimulator.js";
-import { shareLiveAttendanceCondition } from "../services/crossDeviceSyncService.js";
+import {
+  shareLiveAttendanceCondition,
+  generateFreshAppShareUrl,
+  shareFreshAppToNewUser,
+  checkIsFreshLink,
+} from "../services/crossDeviceSyncService.js";
 
 console.log("================================================================================");
 console.log("🎯 RUNNING COMPREHENSIVE VERIFICATION SUITE: ALL NEW FEATURES & REBUILD AUDIT");
@@ -691,6 +696,71 @@ assert(Boolean(liveShareRes.url), "shareLiveAttendanceCondition generates valid 
 assert(liveShareRes.url.includes("#sync=gz_"), "Share URL contains compressed live condition token (#sync=gz_...)");
 assert(liveShareRes.text.includes("Current Live Attendance Condition"), "Share text describes live condition");
 assert(liveShareRes.text.includes("100.0%"), "Share text reports accurate overall attendance percentage");
+
+// ============================================================================
+// TEST SUITE 10: DELETING ANY PROFILE (LEAVING 0 PROFILES) & FRESH WEB APP SHARING
+// ============================================================================
+console.log("\n--- 10. Testing Deleting Any Profile & Fresh App Sharing (0 Profiles) ---");
+
+// Part 1: Seed single user and test deleting the ONLY remaining profile
+storageService.seedDefaultDemoUser();
+const singleUserList = storageService.getUsers();
+assert(singleUserList.length >= 1, "Single demo profile initialized");
+const onlyUserId = singleUserList[0].id;
+
+// Delete all other users if any exist so exactly 1 remains
+for (let i = 1; i < singleUserList.length; i++) {
+  storageService.deleteUser(singleUserList[i].id);
+}
+assert(storageService.getUsers().length === 1, "Exactly 1 profile remains prior to final deletion test");
+
+// Now delete the only remaining profile
+const deleteLastRes = storageService.deleteUser(onlyUserId);
+assert(deleteLastRes.success === true, "deleteUser allows deleting the ONLY remaining profile without blocking");
+assert(deleteLastRes.remainingUsers.length === 0, "Remaining users after deleting only profile is 0");
+assert(deleteLastRes.activeUserId === null, "Active user ID is null after deleting only profile");
+
+// Verify zero profiles state in storage
+const zeroUsers = storageService.getUsers();
+assert(Array.isArray(zeroUsers) && zeroUsers.length === 0, "getUsers() returns empty array [] with zero profiles");
+assert(storageService.getCurrentUserId() === null, "getCurrentUserId() returns null with zero profiles");
+assert(storageService.getCurrentUser() === null, "getCurrentUser() returns null with zero profiles");
+assert(storageService.isAuthenticated() === false, "isAuthenticated() returns false with zero profiles");
+assert(Array.isArray(storageService.getSemesters()) && storageService.getSemesters().length === 0, "getSemesters() returns safe empty array when 0 profiles");
+assert(Array.isArray(storageService.getSubjects()) && storageService.getSubjects().length === 0, "getSubjects() returns safe empty array when 0 profiles");
+
+// Part 2: Test resetToFreshApp()
+// First create a new dummy user
+storageService.createUser({ name: "Another Student", template: "clean" });
+assert(storageService.getUsers().length === 1, "Created student before resetToFreshApp");
+const freshResetRes = storageService.resetToFreshApp();
+assert(freshResetRes.success === true, "resetToFreshApp returns success: true");
+assert(storageService.getUsers().length === 0, "resetToFreshApp leaves zero profiles in storage");
+assert(storageService.getCurrentUserId() === null, "resetToFreshApp sets currentUserId to null");
+
+// Part 3: Test generateFreshAppShareUrl() and shareFreshAppToNewUser()
+const freshUrl = generateFreshAppShareUrl("https://attendanceflow.app");
+assert(freshUrl === "https://attendanceflow.app?fresh=1", "generateFreshAppShareUrl generates clean ?fresh=1 URL");
+
+// Test checkIsFreshLink() URL detector
+assert(checkIsFreshLink("https://attendanceflow.app?fresh=1") === true, "checkIsFreshLink detects ?fresh=1 query param");
+assert(checkIsFreshLink("https://attendanceflow.app?mode=fresh") === true, "checkIsFreshLink detects ?mode=fresh query param");
+assert(checkIsFreshLink("https://attendanceflow.app/#fresh") === true, "checkIsFreshLink detects #fresh hash");
+assert(checkIsFreshLink("https://attendanceflow.app/#sync=gz_test") === false, "checkIsFreshLink returns false for live sync state URL");
+assert(checkIsFreshLink("https://attendanceflow.app/") === false, "checkIsFreshLink returns false for standard root URL");
+
+// Test shareFreshAppToNewUser()
+const shareFreshRes = await shareFreshAppToNewUser({ customBaseUrl: "https://attendanceflow.app" });
+assert(typeof shareFreshRes === "object", "shareFreshAppToNewUser returns share result object");
+assert(shareFreshRes.url === "https://attendanceflow.app?fresh=1", "shareFreshAppToNewUser URL is fresh link");
+assert(shareFreshRes.text.includes("Try AttendanceFlow"), "shareFreshAppToNewUser includes friendly invite copy");
+assert(shareFreshRes.text.includes("zero clutter"), "shareFreshAppToNewUser mentions zero clutter / fresh start");
+
+// Part 4: Test seedDefaultDemoUser() recovery
+const restoredDemoUser = storageService.seedDefaultDemoUser();
+assert(restoredDemoUser && restoredDemoUser.id === "user-adarsh", "seedDefaultDemoUser restores demo profile on demand");
+assert(storageService.getUsers().length === 1, "Users list contains restored demo user");
+assert(storageService.isAuthenticated() === true, "Restored demo user is authenticated");
 
 console.log("\n================================================================================");
 console.log(`🎉 ALL NEW FEATURE TESTS PASSED: ${passed}/${total} (100%)`);

@@ -17,6 +17,7 @@ const GLOBAL_KEYS = {
   USERS: "at_saas_users_list",
   CURRENT_USER_ID: "at_saas_current_user_id",
   CREDENTIALS: "at_saas_credentials_store",
+  INITIALIZED: "at_saas_initialized",
   LEGACY_RECORDS: "attendanceTrackerRecords",
   LEGACY_NON_INSTRUCTIONAL: "attendanceTrackerNonInstructionalDays",
 };
@@ -156,23 +157,32 @@ export const storageService = {
    * Initialize storage with multi-user support & migration
    */
   init() {
-    // 1. Initialize Users Registry
+    const isInitialized = safeGet(GLOBAL_KEYS.INITIALIZED, false);
     let users = safeGet(GLOBAL_KEYS.USERS, null);
-    if (!users || users.length === 0) {
+
+    // If storage has never been initialized, seed default user
+    if (!isInitialized && users === null) {
       users = [DEFAULT_USER];
       safeSet(GLOBAL_KEYS.USERS, users);
       safeSet(GLOBAL_KEYS.CURRENT_USER_ID, DEFAULT_USER.id);
+      safeSet(GLOBAL_KEYS.INITIALIZED, true);
+    } else if (!users) {
+      users = [];
+      safeSet(GLOBAL_KEYS.USERS, users);
     }
 
     let currentUserId = safeGet(GLOBAL_KEYS.CURRENT_USER_ID, null);
-    if (!currentUserId || !users.some((u) => u.id === currentUserId)) {
-      currentUserId = users[0]?.id || DEFAULT_USER.id;
+    if (users.length === 0) {
+      currentUserId = null;
+      safeSet(GLOBAL_KEYS.CURRENT_USER_ID, null);
+    } else if (!currentUserId || !users.some((u) => u.id === currentUserId)) {
+      currentUserId = users[0]?.id || null;
       safeSet(GLOBAL_KEYS.CURRENT_USER_ID, currentUserId);
     }
 
-    // 2. Initialize default credentials if not present
+    // 2. Initialize default credentials if not present and adarsh user exists
     let creds = safeGet(GLOBAL_KEYS.CREDENTIALS, null);
-    if (!creds) {
+    if (!creds && users.some((u) => u.id === DEFAULT_USER.id)) {
       creds = {
         "singhadarshkr836@gmail.com": {
           userId: DEFAULT_USER.id,
@@ -190,21 +200,23 @@ export const storageService = {
       safeSet(GLOBAL_KEYS.CREDENTIALS, creds);
     }
 
-    // 3. Initialize default partition for user-adarsh if not present
-    const adarshKey = `at_saas_u_${DEFAULT_USER.id}_profile`;
-    if (!safeGet(adarshKey, null)) {
-      this.initUserPartition(DEFAULT_USER.id, {
-        profile: safeGet("at_saas_profile", SEED_PROFILE),
-        semesters: safeGet("at_saas_semesters", SEED_SEMESTERS),
-        activeSemester: safeGet("at_saas_active_semester", SEED_SEMESTERS[0].id),
-        subjects: safeGet("at_saas_subjects", SEED_SUBJECTS),
-        timetables: safeGet("at_saas_timetables", SEED_TIMETABLE),
-        calendars: safeGet("at_saas_calendars", SEED_CALENDAR),
-        attendanceRecords: safeGet("at_saas_attendance_records", {
-          "sem-5-2026": safeGet(GLOBAL_KEYS.LEGACY_RECORDS, {}),
-        }),
-        publicSettings: safeGet("at_saas_public_settings", SEED_PUBLIC_SETTINGS),
-      });
+    // 3. Initialize default partition for user-adarsh if present in users
+    if (users.some((u) => u.id === DEFAULT_USER.id)) {
+      const adarshKey = `at_saas_u_${DEFAULT_USER.id}_profile`;
+      if (!safeGet(adarshKey, null)) {
+        this.initUserPartition(DEFAULT_USER.id, {
+          profile: safeGet("at_saas_profile", SEED_PROFILE),
+          semesters: safeGet("at_saas_semesters", SEED_SEMESTERS),
+          activeSemester: safeGet("at_saas_active_semester", SEED_SEMESTERS[0].id),
+          subjects: safeGet("at_saas_subjects", SEED_SUBJECTS),
+          timetables: safeGet("at_saas_timetables", SEED_TIMETABLE),
+          calendars: safeGet("at_saas_calendars", SEED_CALENDAR),
+          attendanceRecords: safeGet("at_saas_attendance_records", {
+            "sem-5-2026": safeGet(GLOBAL_KEYS.LEGACY_RECORDS, {}),
+          }),
+          publicSettings: safeGet("at_saas_public_settings", SEED_PUBLIC_SETTINGS),
+        });
+      }
     }
   },
 
@@ -223,17 +235,23 @@ export const storageService = {
   // MULTI-USER & AUTHENTICATION
   // --------------------------------------------------------------------------
   getUsers() {
-    return safeGet(GLOBAL_KEYS.USERS, [DEFAULT_USER]);
+    const isInit = safeGet(GLOBAL_KEYS.INITIALIZED, false);
+    const fallback = isInit ? [] : [DEFAULT_USER];
+    const users = safeGet(GLOBAL_KEYS.USERS, fallback);
+    return Array.isArray(users) ? users : [];
   },
 
   getCurrentUserId() {
-    return safeGet(GLOBAL_KEYS.CURRENT_USER_ID, DEFAULT_USER.id);
+    const users = this.getUsers();
+    if (!users || users.length === 0) return null;
+    return safeGet(GLOBAL_KEYS.CURRENT_USER_ID, users[0]?.id || null);
   },
 
   getCurrentUser() {
     const users = this.getUsers();
+    if (!users || users.length === 0) return null;
     const currentId = this.getCurrentUserId();
-    return users.find((u) => u.id === currentId) || users[0] || DEFAULT_USER;
+    return users.find((u) => u.id === currentId) || users[0] || null;
   },
 
   login(userId) {
@@ -254,7 +272,7 @@ export const storageService = {
   },
 
   isAuthenticated() {
-    const id = safeGet(GLOBAL_KEYS.CURRENT_USER_ID, null);
+    const id = this.getCurrentUserId();
     const users = this.getUsers();
     return Boolean(id && users.some((u) => u.id === id));
   },
@@ -454,11 +472,6 @@ export const storageService = {
       return { success: false, error: "User profile not found" };
     }
 
-    // Must prevent deleting if only 1 profile exists
-    if (users.length <= 1) {
-      return { success: false, error: "Cannot delete the only remaining profile. Create or switch to another profile first." };
-    }
-
     // 1. Remove all partitioned storage keys for this user
     const partitionResources = [
       "profile",
@@ -504,18 +517,90 @@ export const storageService = {
     // 4. Remove user from USERS array
     users = users.filter((u) => u.id !== userId);
     safeSet(GLOBAL_KEYS.USERS, users);
+    safeSet(GLOBAL_KEYS.INITIALIZED, true);
 
-    // 5. If deleted user was currently active, switch to first remaining user
+    // 5. If deleted user was currently active, switch to first remaining user (or null if 0 users left)
     const currentActiveId = this.getCurrentUserId();
     let nextActiveId = currentActiveId;
-    if (currentActiveId === userId) {
-      nextActiveId = users[0].id;
+    if (currentActiveId === userId || users.length === 0) {
+      nextActiveId = users.length > 0 ? users[0].id : null;
       safeSet(GLOBAL_KEYS.CURRENT_USER_ID, nextActiveId);
       dispatchEvent(STORAGE_EVENTS.USER_CHANGED, { userId: nextActiveId });
     }
 
     dispatchEvent(STORAGE_EVENTS.DATA_REFRESHED);
     return { success: true, remainingUsers: users, activeUserId: nextActiveId, deletedUser: userToDelete };
+  },
+
+  /**
+   * Resets the entire application to a completely fresh state with 0 profiles.
+   * Perfect when sharing the app with someone new or starting from scratch.
+   */
+  resetToFreshApp() {
+    // 1. Remove all user partitions from storage
+    if (typeof localStorage !== "undefined") {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith("at_saas_u_") || k === "at_saas_profile" || k === "at_saas_semesters" || k === "at_saas_subjects" || k === "at_saas_timetables" || k === "at_saas_calendars" || k === "at_saas_attendance_records" || k === "at_saas_public_settings")) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => safeRemove(k));
+    }
+
+    // Clean memory store
+    for (const k of Object.keys(memoryFallbackStore)) {
+      if (k.startsWith("at_saas_u_") || k.startsWith("at_saas_")) {
+        delete memoryFallbackStore[k];
+      }
+    }
+
+    safeSet(GLOBAL_KEYS.USERS, []);
+    safeSet(GLOBAL_KEYS.CURRENT_USER_ID, null);
+    safeSet(GLOBAL_KEYS.CREDENTIALS, {});
+    safeSet(GLOBAL_KEYS.INITIALIZED, true);
+
+    dispatchEvent(STORAGE_EVENTS.USER_CHANGED, { userId: null });
+    dispatchEvent(STORAGE_EVENTS.DATA_REFRESHED);
+    return { success: true, remainingUsers: [], activeUserId: null };
+  },
+
+  /**
+   * Seeds the default demo profile (Adarsh Singh, Galgotias University)
+   * on demand if a newcomer wants to explore with sample data.
+   */
+  seedDefaultDemoUser() {
+    let users = this.getUsers();
+    let existing = users.find((u) => u.id === DEFAULT_USER.id);
+    if (!existing) {
+      users = [DEFAULT_USER, ...users];
+      safeSet(GLOBAL_KEYS.USERS, users);
+    }
+
+    this.initUserPartition(DEFAULT_USER.id, {
+      profile: SEED_PROFILE,
+      semesters: SEED_SEMESTERS,
+      activeSemester: SEED_SEMESTERS[0].id,
+      subjects: SEED_SUBJECTS,
+      timetables: SEED_TIMETABLE,
+      calendars: SEED_CALENDAR,
+      attendanceRecords: { "sem-5-2026": {} },
+      publicSettings: SEED_PUBLIC_SETTINGS,
+    });
+
+    const creds = this.getCredentials();
+    creds["singhadarshkr836@gmail.com"] = {
+      userId: DEFAULT_USER.id,
+      email: "singhadarshkr836@gmail.com",
+      password: "adarsh123",
+      name: DEFAULT_USER.name,
+    };
+    safeSet(GLOBAL_KEYS.CREDENTIALS, creds);
+    safeSet(GLOBAL_KEYS.INITIALIZED, true);
+
+    this.login(DEFAULT_USER.id);
+    return DEFAULT_USER;
   },
 
   getCredentials() {
@@ -617,6 +702,9 @@ export const storageService = {
   // USER PROFILE
   // --------------------------------------------------------------------------
   getProfile() {
+    if (!this.getCurrentUserId()) {
+      return { fullName: "", institution: "", program: "", avatarInitials: "U" };
+    }
     return safeGet(this.uKey("profile"), SEED_PROFILE);
   },
 
@@ -648,6 +736,7 @@ export const storageService = {
   // SEMESTERS
   // --------------------------------------------------------------------------
   getSemesters() {
+    if (!this.getCurrentUserId()) return [];
     return safeGet(this.uKey("semesters"), SEED_SEMESTERS);
   },
 
@@ -720,6 +809,7 @@ export const storageService = {
   // SUBJECTS
   // --------------------------------------------------------------------------
   getSubjects(semesterId) {
+    if (!this.getCurrentUserId()) return [];
     const all = safeGet(this.uKey("subjects"), SEED_SUBJECTS);
     if (!semesterId) return all;
     return all.filter((s) => s.semesterId === semesterId);
@@ -766,6 +856,7 @@ export const storageService = {
   // TIMETABLE & VERSIONING (IMMUTABLE PAST HISTORY)
   // --------------------------------------------------------------------------
   getTimetableData(semesterId) {
+    if (!this.getCurrentUserId()) return {};
     const targetId = semesterId || this.getActiveSemesterId();
     const allTimetables = safeGet(this.uKey("timetables"), SEED_TIMETABLE);
     const data = allTimetables[targetId] || SEED_TIMETABLE[targetId] || {};
@@ -891,6 +982,7 @@ export const storageService = {
   // ACADEMIC CALENDAR
   // --------------------------------------------------------------------------
   getCalendar(semesterId) {
+    if (!this.getCurrentUserId()) return null;
     const targetId = semesterId || this.getActiveSemesterId();
     const allCalendars = safeGet(this.uKey("calendars"), SEED_CALENDAR);
     const activeSem = this.getActiveSemester();
@@ -924,6 +1016,7 @@ export const storageService = {
   // ATTENDANCE RECORDS (WITH CLASS SNAPSHOTTING)
   // --------------------------------------------------------------------------
   getAttendanceRecords(semesterId) {
+    if (!this.getCurrentUserId()) return {};
     const targetId = semesterId || this.getActiveSemesterId();
     const all = safeGet(this.uKey("attendance_records"), {});
     return all[targetId] || {};

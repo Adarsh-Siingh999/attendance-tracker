@@ -43,24 +43,42 @@ const SUBJECT_COLORS = [
   "#0d9488", // Teal
 ];
 
+import {
+  getStoredClaudeApiKey,
+  saveStoredClaudeApiKey,
+  getStoredGeminiApiKey,
+  saveStoredGeminiApiKey,
+  getPreferredAiProvider,
+  savePreferredAiProvider,
+  analyzeTimetableImageWithClaude,
+  analyzeTimetableTextWithClaude,
+  testClaudeApiKey,
+} from "./aiService.js";
+
+export {
+  getStoredClaudeApiKey,
+  saveStoredClaudeApiKey,
+  getStoredGeminiApiKey,
+  saveStoredGeminiApiKey,
+  getPreferredAiProvider,
+  savePreferredAiProvider,
+  analyzeTimetableImageWithClaude,
+  analyzeTimetableTextWithClaude,
+  testClaudeApiKey,
+};
+
 /**
  * Get stored Gemini API key from localStorage
  */
 export function getStoredApiKey() {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem(STORAGE_API_KEY) || "";
+  return getStoredGeminiApiKey();
 }
 
 /**
  * Save Gemini API key to localStorage
  */
 export function saveStoredApiKey(apiKey) {
-  if (typeof window === "undefined") return;
-  if (!apiKey) {
-    localStorage.removeItem(STORAGE_API_KEY);
-  } else {
-    localStorage.setItem(STORAGE_API_KEY, apiKey.trim());
-  }
+  saveStoredGeminiApiKey(apiKey);
 }
 
 /**
@@ -211,6 +229,46 @@ Return ONLY a valid JSON object matching this exact structure:
   }
 
   throw lastError || new Error("Failed to extract timetable with Gemini Vision");
+}
+
+/**
+ * Unified Timetable Analyzer that executes via Claude 3.5 Sonnet Vision (premier)
+ * or Gemini Vision based on configured keys and provider preference.
+ */
+export async function analyzeTimetableImageWithAI({
+  base64Data,
+  mimeType = "image/jpeg",
+  provider = null,
+  apiKey = "",
+}) {
+  const chosenProvider = provider || getPreferredAiProvider();
+  const claudeKey = apiKey && apiKey.startsWith("sk-ant") ? apiKey : getStoredClaudeApiKey();
+  const geminiKey = apiKey && !apiKey.startsWith("sk-ant") ? apiKey : getStoredGeminiApiKey();
+
+  // If Claude is explicitly chosen, or if Claude key is present, use Claude Vision
+  if (chosenProvider === "claude" || (!provider && claudeKey)) {
+    if (claudeKey) {
+      const raw = await analyzeTimetableImageWithClaude(base64Data, mimeType, claudeKey);
+      return sanitizeDetectedDays(raw);
+    }
+  }
+
+  // Otherwise, use Gemini Vision if Gemini key is available
+  if (geminiKey) {
+    return analyzeTimetableImageWithGemini(base64Data, mimeType, geminiKey);
+  }
+
+  // If apiKey was passed directly without prefix
+  if (apiKey) {
+    if (apiKey.startsWith("sk-ant")) {
+      const raw = await analyzeTimetableImageWithClaude(base64Data, mimeType, apiKey);
+      return sanitizeDetectedDays(raw);
+    } else {
+      return analyzeTimetableImageWithGemini(base64Data, mimeType, apiKey);
+    }
+  }
+
+  throw new Error("No AI API key provided. Please configure your Claude API Key or Gemini API Key.");
 }
 
 /**
